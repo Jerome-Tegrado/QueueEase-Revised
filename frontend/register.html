@@ -18,5 +18,35 @@
     <input type="password" name="password" placeholder="Password" required>
     <button type="submit">Register</button>
   </form>
+
+  <script>
+      document.getElementById('register-form').addEventListener('submit', async (event) => {
+          event.preventDefault();
+
+          const formData = new FormData(event.target);
+          const data = Object.fromEntries(formData.entries());
+
+          try {
+              const response = await fetch('/api/register', {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(data),
+              });
+
+              if (response.ok) {
+                  alert('Registration successful!');
+                  window.location.href = '/'; // Redirect to home or login page
+              } else {
+                  const error = await response.json();
+                  alert(`Error: ${error.message}`);
+              }
+          } catch (error) {
+              console.error('Error:', error);
+              alert('Something went wrong!');
+          }
+      });
+  </script>
 </body>
 </html>

@@ -26,8 +26,34 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Initialize database
-initializeDB();
+// Registration Route
+app.post('/api/register', (req, res) => {
+    const { first_name, last_name, address, zip_code, contact_number, email, password } = req.body;
+
+    if (!first_name || !last_name || !email || !password) {
+        return res.status(400).json({ message: 'Required fields are missing.' });
+    }
+
+    const query = `
+        INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    db.run(
+        query,
+        [first_name, last_name, address, zip_code, contact_number, email, password],
+        (err) => {
+            if (err) {
+                if (err.code === 'SQLITE_CONSTRAINT') {
+                    return res.status(400).json({ message: 'Email already exists.' });
+                }
+                console.error('Database error:', err.message);
+                return res.status(500).json({ message: 'Internal server error.' });
+            }
+            res.status(201).json({ message: 'User registered successfully!' });
+        }
+    );
+});
 
 // Default route (serves index.html)
 app.get('/', (req, res) => {
@@ -67,6 +93,8 @@ app.post('/user/login', (req, res) => {
     });
 });
 
+// Initialize database
+initializeDB();
 
 // Server startup
 const PORT = process.env.PORT || 5000;
