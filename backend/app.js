@@ -73,7 +73,7 @@ app.post('/user/login', (req, res) => {
 
         if (!user) {
             // Redirect to register.html if the account does not exist
-            return res.status(401).sendFile(path.join(__dirname, '../frontend/register.html'));
+            return res.redirect('/register.html');
         }
 
         // Check password
@@ -82,16 +82,17 @@ app.post('/user/login', (req, res) => {
             return res.status(401).send('Invalid password.');
         }
 
-        // Serve appropriate dashboard based on role
+        // Redirect to the appropriate dashboard based on role
         if (user.role === 'admin') {
-            res.status(200).sendFile(path.join(__dirname, '../frontend/admin-dashboard.html'));
+            res.redirect('/admin-dashboard.html');
         } else if (user.role === 'user') {
-            res.status(200).sendFile(path.join(__dirname, '../frontend/user-dashboard.html'));
+            res.redirect('/user-dashboard.html');
         } else {
             res.status(403).send('Invalid role.');
         }
     });
 });
+
 
 // Initialize database
 initializeDB();
