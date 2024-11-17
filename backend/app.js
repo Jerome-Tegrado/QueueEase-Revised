@@ -55,6 +55,68 @@ app.post('/api/register', (req, res) => {
     );
 });
 
+// User Management Routes (for Admins)
+app.get('/api/admin/users', (req, res) => {
+    db.all('SELECT * FROM users', [], (err, rows) => {
+        if (err) {
+            console.error('Error fetching users:', err.message);
+            return res.status(500).json({ message: 'Failed to fetch users.' });
+        }
+        res.status(200).json(rows);
+    });
+});
+
+app.post('/api/admin/users', (req, res) => {
+    const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
+
+    db.run(
+        `INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password, role)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [first_name, last_name, address, zip_code, contact_number, email, password, role || 'user'],
+        function (err) {
+            if (err) {
+                console.error('Error adding user:', err.message);
+                return res.status(500).json({ message: 'Failed to add user.' });
+            }
+            res.status(201).json({ id: this.lastID, message: 'User added successfully.' });
+        }
+    );
+});
+
+app.put('/api/admin/users/:id', (req, res) => {
+    const { id } = req.params;
+    const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
+
+    db.run(
+        `UPDATE users SET first_name = ?, last_name = ?, address = ?, zip_code = ?, contact_number = ?, email = ?, password = ?, role = ?
+        WHERE id = ?`,
+        [first_name, last_name, address, zip_code, contact_number, email, password, role, id],
+        function (err) {
+            if (err) {
+                console.error('Error updating user:', err.message);
+                return res.status(500).json({ message: 'Failed to update user.' });
+            } else if (this.changes === 0) {
+                return res.status(404).json({ message: 'User not found.' });
+            }
+            res.status(200).json({ message: 'User updated successfully.' });
+        }
+    );
+});
+
+app.delete('/api/admin/users/:id', (req, res) => {
+    const { id } = req.params;
+
+    db.run('DELETE FROM users WHERE id = ?', [id], function (err) {
+        if (err) {
+            console.error('Error deleting user:', err.message);
+            return res.status(500).json({ message: 'Failed to delete user.' });
+        } else if (this.changes === 0) {
+            return res.status(404).json({ message: 'User not found.' });
+        }
+        res.status(200).json({ message: 'User deleted successfully.' });
+    });
+});
+
 // Default route (serves index.html)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
@@ -92,7 +154,6 @@ app.post('/user/login', (req, res) => {
         }
     });
 });
-
 
 // Initialize database
 initializeDB();
