@@ -89,30 +89,30 @@
     }
 
     function enableEdit(editButton) {
-      const row = editButton.closest('tr');
-      row.querySelectorAll('td[contenteditable]').forEach(cell => {
-        cell.contentEditable = 'true';
-      });
+  const row = editButton.closest('tr');
+  row.querySelectorAll('td[contenteditable]').forEach(cell => {
+    cell.contentEditable = 'true';
+    cell.style.backgroundColor = '#fffbe6'; // Optional: Highlight editable cells
+  });
 
-      editButton.style.display = 'none'; // Hide the Edit button
-      const saveButton = row.querySelector('button[onclick^="saveRow"]');
-      if (saveButton) saveButton.style.display = 'inline'; // Show the Save button
-    }
+  editButton.style.display = 'none'; // Hide Edit button
+  const saveButton = row.querySelector('button[onclick^="saveRow"]');
+  if (saveButton) saveButton.style.display = 'inline'; // Show Save button
+}
 
-    async function saveRow(id, button) {
+
+async function saveRow(id, button) {
   const row = button.closest('tr');
-  const passwordCell = row.children[7]; // Adjust this index based on your table layout
-
   const updatedData = {
     first_name: row.children[1].textContent.trim(),
     last_name: row.children[2].textContent.trim(),
     address: row.children[3].textContent.trim(),
     zip_code: row.children[4].textContent.trim(),
     contact_number: row.children[5].textContent.trim(),
-    email: row.children[6].textContent.trim(), // Ensure email is preserved
-    password: passwordCell.textContent.trim() || null, // Keep existing password unless updated
-    role: row.children[8].querySelector('select').value, // Adjust this index for your table
+    email: row.children[6].textContent.trim(),
   };
+
+  console.log('Updating user:', updatedData);
 
   try {
     const response = await fetch(`/api/admin/users/${id}`, {
@@ -123,7 +123,7 @@
 
     if (response.ok) {
       alert('User updated successfully.');
-      loadUsers(); // Refresh the user list
+      loadUsers(); // Reload user list
     } else {
       const result = await response.json();
       alert(result.message || 'Failed to update user.');
@@ -132,6 +132,7 @@
     console.error('Error saving user:', error);
   }
 }
+
 
 
 
