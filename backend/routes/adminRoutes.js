@@ -1,15 +1,21 @@
 const express = require('express');
 const router = express.Router();
-const { getAllUsers, manageQueue, sendNotification } = require('../controllers/adminController');
+const {
+  getAllUsers,
+  manageQueue,
+  sendNotification,
+  getQueue,
+  getAllServices,
+  getCurrentServingQueue, // Added function for current queue
+  updateQueueStatus,      // Added function for queue actions
+  addTransaction          // Added function for user transactions
+} = require('../controllers/adminController');
 const { db } = require('../models/database');
 
-// Fetch all users
+// User Management
 router.get('/users', getAllUsers);
-
-// Add a new user
 router.post('/users', (req, res) => {
   const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
-
   db.run(
     `INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password, role)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -24,26 +30,13 @@ router.post('/users', (req, res) => {
     }
   );
 });
-
-// Update an existing user
 router.put('/users/:id', (req, res) => {
   const { id } = req.params;
   const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
-
-  // Fetch the existing user to preserve the password if it's not being updated
   db.get('SELECT * FROM users WHERE id = ?', [id], (err, user) => {
-    if (err) {
-      console.error('Error fetching user for update:', err.message);
-      return res.status(500).json({ message: 'Error retrieving user for update.' });
-    }
-
-    if (!user) {
-      return res.status(404).json({ message: 'User not found.' });
-    }
-
-    // Preserve the current password if not provided in the request
+    if (err) return res.status(500).json({ message: 'Error retrieving user for update.' });
+    if (!user) return res.status(404).json({ message: 'User not found.' });
     const updatedPassword = password || user.password;
-
     db.run(
       `UPDATE users 
        SET first_name = ?, last_name = ?, address = ?, zip_code = ?, contact_number = ?, email = ?, password = ?, role = ?
@@ -57,44 +50,65 @@ router.put('/users/:id', (req, res) => {
         email || user.email,
         updatedPassword,
         role || user.role,
-        id,
+        id
       ],
       function (err) {
-        if (err) {
-          console.error('Error updating user:', err.message);
-          return res.status(500).json({ message: 'Error updating user.' });
-        }
-
-        if (this.changes === 0) {
-          return res.status(404).json({ message: 'User not updated (no changes made).' });
-        }
-
+        if (err) return res.status(500).json({ message: 'Error updating user.' });
         res.status(200).json({ message: 'User updated successfully.' });
       }
     );
   });
 });
-
-// Delete a user
 router.delete('/users/:id', (req, res) => {
   const { id } = req.params;
-
   db.run('DELETE FROM users WHERE id = ?', [id], function (err) {
-    if (err) {
-      console.error('Error deleting user:', err.message);
-      res.status(500).json({ message: 'Failed to delete user.' });
-    } else if (this.changes === 0) {
-      res.status(404).json({ message: 'User not found.' });
-    } else {
-      res.status(200).json({ message: 'User deleted successfully.' });
-    }
+    if (err) return res.status(500).json({ message: 'Failed to delete user.' });
+    res.status(200).json({ message: 'User deleted successfully.' });
   });
 });
 
-// Queue management route
-router.post('/queue', manageQueue);
+// Queue Management
+router.get('/queue', getQueue);
+router.get('/queue/current', getCurrentServingQueue);
+router.put('/queue/:queueNumber/:action', updateQueueStatus);
 
-// Send notification route
+// Services Management
+router.get('/services', getAllServices);
+router.post('/services', (req, res) => {
+  const { service_name, description } = req.body;
+  db.run(
+    `INSERT INTO services (service_name, description) VALUES (?, ?)`,
+    [service_name, description],
+    function (err) {
+      if (err) return res.status(500).json({ message: 'Failed to add service.' });
+      res.status(201).json({ message: 'Service added successfully.' });
+    }
+  );
+});
+router.put('/services/:serviceId', (req, res) => {
+  const { serviceId } = req.params;
+  const { service_name, description } = req.body;
+  db.run(
+    `UPDATE services SET service_name = ?, description = ? WHERE service_id = ?`,
+    [service_name, description, serviceId],
+    function (err) {
+      if (err) return res.status(500).json({ message: 'Failed to update service.' });
+      res.status(200).json({ message: 'Service updated successfully.' });
+    }
+  );
+});
+router.delete('/services/:serviceId', (req, res) => {
+  const { serviceId } = req.params;
+  db.run('DELETE FROM services WHERE service_id = ?', [serviceId], function (err) {
+    if (err) return res.status(500).json({ message: 'Failed to delete service.' });
+    res.status(200).json({ message: 'Service deleted successfully.' });
+  });
+});
+
+// Add transaction
+router.post('/transactions', addTransaction);
+
+// Notifications
 router.post('/notification', sendNotification);
 
 module.exports = router;

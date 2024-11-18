@@ -5,15 +5,80 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Queue Management | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script>
+    async function loadQueue() {
+      try {
+        const response = await fetch('/api/admin/queue');
+        if (!response.ok) throw new Error('Failed to fetch queue data.');
+
+        const queue = await response.json();
+        const queueTable = document.getElementById('queueTable');
+        queueTable.innerHTML = '';
+
+        queue.forEach(item => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${item.queue_number}</td>
+            <td>${item.user_id}</td>
+            <td>${item.transaction_type}</td>
+            <td>${item.status}</td>
+            <td>
+              <button onclick="updateQueue(${item.queue_number}, 'prioritize')">Prioritize</button>
+              <button onclick="updateQueue(${item.queue_number}, 'complete')">Complete</button>
+              <button onclick="updateQueue(${item.queue_number}, 'cancel')">Cancel</button>
+            </td>
+          `;
+          queueTable.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error loading queue:', error);
+      }
+    }
+
+    async function updateQueue(queueNumber, action) {
+      try {
+        const response = await fetch(`/api/admin/queue/${queueNumber}/${action}`, { method: 'PUT' });
+        if (response.ok) {
+          alert(`Queue #${queueNumber} ${action}d successfully.`);
+          loadQueue();
+        } else {
+          alert('Failed to update queue.');
+        }
+      } catch (error) {
+        console.error('Error updating queue:', error);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadQueue);
+  </script>
 </head>
 <body>
   <header>
     <h1>Queue Management</h1>
+    <nav>
+      <a href="admin-dashboard.html">Dashboard</a>
+      <a href="queue-management.html">Manage Queue</a>
+      <a href="notifications.html">Notifications</a>
+      <a href="index.html">Logout</a>
+    </nav>
   </header>
+
   <main>
-    <p>Currently Serving: 5</p>
-    <button>Next</button>
-    <button>Mark as Completed</button>
+    <h2>Live Queue</h2>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Queue Number</th>
+          <th>User ID</th>
+          <th>Transaction Type</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="queueTable">
+        <!-- Queue rows will be dynamically generated here -->
+      </tbody>
+    </table>
   </main>
 </body>
 </html>

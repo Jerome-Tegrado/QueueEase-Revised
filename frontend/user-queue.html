@@ -3,24 +3,90 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Queue Management | QueueEase</title>
+  <title>User Queue | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script>
+    async function loadCurrentQueue() {
+      try {
+        const response = await fetch('/api/admin/queue/current');
+        if (!response.ok) throw new Error('Failed to fetch current queue.');
+
+        const data = await response.json();
+        document.getElementById('currentServing').textContent = data.queue_number || 'None';
+      } catch (error) {
+        console.error('Error fetching current queue:', error);
+      }
+    }
+
+    async function joinQueue() {
+      const userId = 1; // Replace with actual logged-in user ID
+      const transactionType = document.getElementById('transactionType').value;
+
+      try {
+        const response = await fetch('/api/admin/transactions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, transaction_type: transactionType }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          alert('Joined the queue successfully!');
+          loadUserQueueNumber(userId);
+        } else {
+          alert('Failed to join the queue.');
+        }
+      } catch (error) {
+        console.error('Error joining queue:', error);
+      }
+    }
+
+    async function loadUserQueueNumber(userId) {
+      try {
+        const response = await fetch(`/api/user/${userId}/queue-number`);
+        if (!response.ok) throw new Error('Failed to fetch user queue number.');
+
+        const data = await response.json();
+        document.getElementById('userQueueNumber').textContent = data.queue_number || 'None';
+      } catch (error) {
+        console.error('Error fetching user queue number:', error);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadCurrentQueue();
+      const userId = 1; // Replace with actual logged-in user ID
+      loadUserQueueNumber(userId);
+    });
+  </script>
 </head>
 <body>
   <header>
     <h1>Manage Your Queue</h1>
+    <nav>
+      <a href="user-dashboard.html">Dashboard</a>
+      <a href="user-queue.html">Queue</a>
+      <a href="index.html">Logout</a>
+    </nav>
   </header>
+
   <main>
-    <label for="transaction-type">Select Transaction Type:</label>
-    <select id="transaction-type">
-      <option value="type1">Type 1</option>
-      <option value="type2">Type 2</option>
-    </select>
-    <button>Join Queue</button>
-    <div id="queue-status">
-      <p>Currently Serving: 5</p>
-      <p>Your Number: 10</p>
-    </div>
+    <section>
+      <h2>Join Queue</h2>
+      <label for="transactionType">Select Transaction Type:</label>
+      <select id="transactionType">
+        <option value="Type 1">Type 1</option>
+        <option value="Type 2">Type 2</option>
+        <option value="Type 3">Type 3</option>
+      </select>
+      <button onclick="joinQueue()">Join Queue</button>
+    </section>
+
+    <section>
+      <h2>Current Queue Status</h2>
+      <p>Currently Serving: <span id="currentServing">Loading...</span></p>
+      <p>Your Number: <span id="userQueueNumber">Loading...</span></p>
+    </section>
   </main>
 </body>
 </html>
