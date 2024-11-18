@@ -2,10 +2,15 @@ const { db } = require('../models/database');
 
 exports.getAllUsers = (req, res) => {
     const query = `SELECT * FROM users WHERE role = 'user' ORDER BY created_at DESC`;
-    db.all(query, [], (err, rows) => {
-        if (err) return res.status(500).send('Error retrieving users.');
-        res.json(rows);
-    });
+    db.all('SELECT * FROM users ORDER BY id ASC', (err, rows) => {
+        if (err) {
+          console.error('Error fetching users:', err);
+          res.status(500).json({ message: 'Internal server error.' });
+        } else {
+          res.json(rows); // Return users sorted by ID
+        }
+      });
+      
 };
 
 exports.manageQueue = (req, res) => {

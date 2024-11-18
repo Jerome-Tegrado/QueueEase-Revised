@@ -29,25 +29,45 @@ router.post('/users', (req, res) => {
 
 // Update an existing user
 router.put('/users/:id', (req, res) => {
-  const { id } = req.params;
-  const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
-
-  db.run(
-    `UPDATE users SET first_name = ?, last_name = ?, address = ?, zip_code = ?, contact_number = ?, email = ?, password = ?, role = ?
-    WHERE id = ?`,
-    [first_name, last_name, address, zip_code, contact_number, email, password, role, id],
-    function (err) {
+    const { id } = req.params;
+    const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
+  
+    // Fetch the existing user to preserve the password if it's not being updated
+    db.get('SELECT * FROM users WHERE id = ?', [id], (err, user) => {
       if (err) {
-        console.error('Error updating user:', err.message);
-        res.status(500).json({ message: 'Failed to update user.' });
-      } else if (this.changes === 0) {
-        res.status(404).json({ message: 'User not found.' });
-      } else {
-        res.status(200).json({ message: 'User updated successfully.' });
+        console.error('Error fetching user for update:', err.message);
+        return res.status(500).json({ message: 'Error retrieving user for update.' });
       }
-    }
-  );
-});
+  
+      if (!user) {
+        return res.status(404).json({ message: 'User not found.' });
+      }
+  
+      // Preserve the current password if not provided in the request
+      const updatedPassword = password || user.password;
+  
+      db.run(
+        `UPDATE users 
+         SET first_name = ?, last_name = ?, address = ?, zip_code = ?, contact_number = ?, email = ?, password = ?, role = ?
+         WHERE id = ?`,
+        [first_name || user.first_name, last_name || user.last_name, address || user.address, zip_code || user.zip_code,
+        contact_number || user.contact_number, email || user.email, updatedPassword, role || user.role, id],
+        function (err) {
+          if (err) {
+            console.error('Error updating user:', err.message);
+            return res.status(500).json({ message: 'Error updating user.' });
+          }
+  
+          if (this.changes === 0) {
+            return res.status(404).json({ message: 'User not updated (no changes made).' });
+          }
+  
+          res.status(200).json({ message: 'User updated successfully.' });
+        }
+      );
+    });
+  });
+  
 
 // Delete a user
 router.delete('/users/:id', (req, res) => {
