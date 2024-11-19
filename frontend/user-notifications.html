@@ -5,13 +5,76 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Notifications | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script>
+    // Function to load user notifications
+    async function loadNotifications() {
+      try {
+        // Example: Assuming the user_id is stored in localStorage after login
+        const userId = localStorage.getItem("user_id");
+        if (!userId) {
+          throw new Error("User not logged in.");
+        }
+
+        const response = await fetch(`http://localhost:5000/api/user/notifications?user_id=${userId}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch notifications.");
+        }
+
+        const notifications = await response.json(); // Parse JSON data
+        const notificationsContainer = document.getElementById("notificationsContainer");
+        const unreadCount = notifications.filter(notification => !notification.read).length;
+
+        // Update the navigation badge with unread count
+        const notificationBadge = document.getElementById("notificationBadge");
+        if (unreadCount > 0) {
+          notificationBadge.textContent = unreadCount; // Show the unread count
+          notificationBadge.style.display = "inline-block"; // Make the badge visible
+        } else {
+          notificationBadge.style.display = "none"; // Hide the badge if no unread notifications
+        }
+
+        notificationsContainer.innerHTML = ""; // Clear existing content
+
+        if (notifications.length > 0) {
+          notifications.forEach(notification => {
+            const row = document.createElement("div");
+            row.className = "notification-card";
+            row.innerHTML = `
+              <p class="notification-message">${notification.message}</p>
+              <span class="notification-date">${new Date(notification.created_at).toLocaleString()}</span>
+            `;
+            notificationsContainer.appendChild(row);
+          });
+        } else {
+          notificationsContainer.innerHTML = "<p>No notifications found.</p>";
+        }
+      } catch (error) {
+        console.error("Error loading notifications:", error);
+        document.getElementById("notificationsContainer").innerHTML =
+          "<p>Error loading notifications. Please try again later.</p>";
+      }
+    }
+
+    // Load notifications on page load
+    document.addEventListener("DOMContentLoaded", loadNotifications);
+  </script>
 </head>
 <body>
   <header>
-    <h1>Your Notifications</h1>
+    <h1>User Notifications</h1>
+    <nav>
+      <a href="user-dashboard.html">Dashboard</a>
+      <a href="user-queue.html">Queue</a>
+      <a href="user-notifications.html">Notifications <span id="notificationBadge" class="badge"></span></a>
+      <a href="index.html">Logout</a>
+    </nav>
   </header>
-  <main id="notifications">
-    <p>No new notifications.</p>
+
+  <main>
+    <h2>Your Notifications</h2>
+    <div id="notificationsContainer" class="notifications-container">
+      <!-- Notifications will be dynamically populated here -->
+    </div>
   </main>
 </body>
 </html>
