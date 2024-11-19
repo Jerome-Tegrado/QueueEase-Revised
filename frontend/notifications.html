@@ -5,14 +5,121 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Notifications Management | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script>
+    async function loadNotifications() {
+      try {
+        const response = await fetch('/api/admin/notifications');
+        if (!response.ok) throw new Error('Failed to fetch notifications.');
+
+        const notifications = await response.json();
+        const notificationsTable = document.getElementById('notificationsTable');
+        notificationsTable.innerHTML = '';
+
+        notifications.forEach(item => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${item.notification_id}</td>
+            <td>${item.user_id}</td>
+            <td>${item.message}</td>
+            <td>${item.created_at}</td>
+            <td>
+              <button onclick="deleteNotification(${item.notification_id})">Delete</button>
+            </td>
+          `;
+          notificationsTable.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error loading notifications:', error);
+      }
+    }
+
+    async function sendNotification() {
+      const userId = document.getElementById('userId').value;
+      const status = document.getElementById('status').value;
+      const message = `${status}: ${document.getElementById('message').value}`;
+
+      try {
+        const response = await fetch('/api/admin/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ user_id: userId, message }),
+        });
+
+        if (response.ok) {
+          alert('Notification sent successfully.');
+          loadNotifications();
+          document.getElementById('notificationForm').reset();
+        } else {
+          alert('Failed to send notification.');
+        }
+      } catch (error) {
+        console.error('Error sending notification:', error);
+      }
+    }
+
+    async function deleteNotification(notificationId) {
+      try {
+        const response = await fetch(`/api/admin/notifications/${notificationId}`, { method: 'DELETE' });
+        if (response.ok) {
+          alert('Notification deleted successfully.');
+          loadNotifications();
+        } else {
+          alert('Failed to delete notification.');
+        }
+      } catch (error) {
+        console.error('Error deleting notification:', error);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadNotifications);
+  </script>
 </head>
 <body>
   <header>
     <h1>Notifications Management</h1>
+    <nav>
+      <a href="admin-dashboard.html">Dashboard</a>
+      <a href="queue-management.html">Manage Queue</a>
+      <a href="notifications.html">Notifications</a>
+      <a href="index.html">Logout</a>
+    </nav>
   </header>
+
   <main>
-    <textarea placeholder="Type your notification here"></textarea>
-    <button>Send Notification</button>
+    <h2>Send Notification</h2>
+    <form id="notificationForm" onsubmit="event.preventDefault(); sendNotification();">
+      <label for="userId">User ID:</label>
+      <input type="number" id="userId" required>
+
+      <label for="message">Message:</label>
+      <textarea id="message" rows="3" required></textarea>
+
+      <label for="status">Status:</label>
+      <select id="status" required>
+        <option value="Pending">Pending</option>
+        <option value="Upcoming">Upcoming</option>
+        <option value="User's Turn">User's Turn</option>
+      </select>
+
+      <button type="submit">Send Notification</button>
+    </form>
+
+    <h2>All Notifications</h2>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Notification ID</th>
+          <th>User ID</th>
+          <th>Message</th>
+          <th>Created At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="notificationsTable">
+        <!-- Notifications will be dynamically loaded here -->
+      </tbody>
+    </table>
   </main>
 </body>
 </html>
+
