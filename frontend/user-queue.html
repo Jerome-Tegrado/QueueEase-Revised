@@ -6,57 +6,62 @@
   <title>User Queue | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
   <script>
-    async function loadCurrentQueue() {
+    async function loadServices() {
       try {
-        const response = await fetch('/api/admin/queue/current');
-        if (!response.ok) throw new Error('Failed to fetch current queue.');
+        const response = await fetch('/api/admin/services');
+        if (!response.ok) throw new Error('Failed to fetch services.');
 
-        const data = await response.json();
-        document.getElementById('currentServing').textContent = data.queue_number || 'None';
+        const services = await response.json();
+        const serviceSelect = document.getElementById('service_id');
+
+        services.forEach(service => {
+          const option = document.createElement('option');
+          option.value = service.service_id;
+          option.textContent = service.service_name;
+          serviceSelect.appendChild(option);
+        });
       } catch (error) {
-        console.error('Error fetching current queue:', error);
+        console.error('Error fetching services:', error);
       }
     }
 
-    async function joinQueue() {
-      const userId = 1; // Replace with actual logged-in user ID
-      const transactionType = document.getElementById('transactionType').value;
+    //same as joinQueue
+    function getUserIdFromToken() {
+      const token = localStorage.getItem('token');
+      if (!token) return null;
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      return payload.user_id;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadServices();
+    });
+
+    document.getElementById('queueForm').addEventListener('submit', async function(event) {
+      event.preventDefault();
+
+      const formData = new FormData(event.target);
+      const data = Object.fromEntries(formData.entries());
+      data.user_id = getUserIdFromToken(); // Get user ID from token
 
       try {
         const response = await fetch('/api/admin/transactions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ user_id: userId, transaction_type: transactionType }),
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(data)
         });
 
         if (response.ok) {
-          const data = await response.json();
+          const result = await response.json();
           alert('Joined the queue successfully!');
-          loadUserQueueNumber(userId);
         } else {
           alert('Failed to join the queue.');
         }
       } catch (error) {
         console.error('Error joining queue:', error);
       }
-    }
-
-    async function loadUserQueueNumber(userId) {
-      try {
-        const response = await fetch(`/api/user/${userId}/queue-number`);
-        if (!response.ok) throw new Error('Failed to fetch user queue number.');
-
-        const data = await response.json();
-        document.getElementById('userQueueNumber').textContent = data.queue_number || 'None';
-      } catch (error) {
-        console.error('Error fetching user queue number:', error);
-      }
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      loadCurrentQueue();
-      const userId = 1; // Replace with actual logged-in user ID
-      loadUserQueueNumber(userId);
     });
   </script>
 </head>
@@ -73,19 +78,14 @@
   <main>
     <section>
       <h2>Join Queue</h2>
-      <label for="transactionType">Select Transaction Type:</label>
-      <select id="transactionType">
-        <option value="Type 1">Type 1</option>
-        <option value="Type 2">Type 2</option>
-        <option value="Type 3">Type 3</option>
-      </select>
-      <button onclick="joinQueue()">Join Queue</button>
-    </section>
+      <form id="queueForm">
+        <label for="service_id">Choose a transaction:</label>
+        <select id="service_id" name="service_id" required>
+          <option value="" disabled selected>Select a service</option>
+        </select><br><br>
 
-    <section>
-      <h2>Current Queue Status</h2>
-      <p>Currently Serving: <span id="currentServing">Loading...</span></p>
-      <p>Your Number: <span id="userQueueNumber">Loading...</span></p>
+        <button type="submit">Join Queue</button>
+      </form>
     </section>
   </main>
 </body>
