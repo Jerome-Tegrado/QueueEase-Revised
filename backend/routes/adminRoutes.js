@@ -5,12 +5,11 @@ const {
   manageQueue,
   sendNotification,
   getQueue,
-  getAllServices,
   getCurrentServingQueue, // Added function for current queue
   updateQueueStatus,      // Added function for queue actions
-  addTransaction          // Added function for user transactions
 } = require('../controllers/adminController');
 const { db } = require('../models/database');
+const TransactionModel = require('../models/transactionModel');
 
 // User Management
 router.get('/users', getAllUsers);
@@ -73,7 +72,15 @@ router.get('/queue/current', getCurrentServingQueue);
 router.put('/queue/:queueNumber/:action', updateQueueStatus);
 
 // Services Management
-router.get('/services', getAllServices);
+router.get('/services', (req, res) => {
+  const query = `SELECT * FROM services`;
+  db.all(query, [], (err, rows) => {
+      if (err) {
+          return res.status(500).json({ error: err.message });
+      }
+      res.json(rows);
+  });
+});
 router.post('/services', (req, res) => {
   const { service_name, description } = req.body;
   db.run(
@@ -105,8 +112,29 @@ router.delete('/services/:serviceId', (req, res) => {
   });
 });
 
-// Add transaction
-router.post('/transactions', addTransaction);
+// Transactions Management
+router.post('/transactions', (req, res) => {
+  const transaction = req.body;
+
+  // Validate user_id
+  const validateUserQuery = 'SELECT * FROM users WHERE id = ?';
+  db.get(validateUserQuery, [transaction.user_id], (err, user) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error' });
+    }
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid user_id' });
+    }
+
+    // Create the transaction
+    TransactionModel.createTransaction(transaction, (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.status(201).json({ message: 'Transaction created successfully', transaction_id: result.lastID });
+    });
+  });
+});
 
 // Notifications
 router.post('/notification', sendNotification);
