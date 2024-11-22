@@ -26,6 +26,17 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 
+// New route to fetch services
+app.get('/api/services', (req, res) => {
+    const query = `SELECT * FROM services`;
+    db.all(query, [], (err, rows) => {
+        if (err) {
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows);
+    });
+});
+
 // Registration Route
 app.post('/api/register', (req, res) => {
     const { first_name, last_name, address, zip_code, contact_number, email, password } = req.body;
@@ -144,8 +155,8 @@ app.post('/user/login', (req, res) => {
             return res.status(401).send('Invalid password.');
         }
 
-        // Redirect to the appropriate dashboard based on role
-        if (user.role === 'admin') {
+         // Redirect to the appropriate dashboard based on role
+         if (user.role === 'admin') {
             res.redirect('/admin-dashboard.html');
         } else if (user.role === 'user') {
             res.redirect('/user-dashboard.html');
