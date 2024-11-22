@@ -25,24 +25,36 @@
       }
     }
 
-    //same as joinQueue
-    function getUserIdFromToken() {
-      const token = localStorage.getItem('token');
-      if (!token) return null;
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      return payload.user_id;
+    function getUserID() {
+      // Retrieve the user ID from localStorage
+      const user_id = localStorage.getItem('id');
+      if (!user_id) {
+        console.error('Failed to retrieve user ID.');
+        return null;
+      }
+      return user_id;
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-      loadServices();
-    });
+    async function joinQueue() {
+      const serviceSelect = document.getElementById('service_id');
+      const service_id = serviceSelect.value;
 
-    document.getElementById('queueForm').addEventListener('submit', async function(event) {
-      event.preventDefault();
+      if (!service_id) {
+        alert('Please select a service.');
+        return;
+      }
 
-      const formData = new FormData(event.target);
-      const data = Object.fromEntries(formData.entries());
-      data.user_id = getUserIdFromToken(); // Get user ID from token
+      const user_id = getUserID(); // Get user ID from localStorage
+
+      if (!user_id) {
+        alert('Failed to retrieve user ID.');
+        return;
+      }
+
+      const data = {
+        user_id,
+        service_id
+      };
 
       try {
         const response = await fetch('/api/admin/transactions', {
@@ -62,6 +74,17 @@
       } catch (error) {
         console.error('Error joining queue:', error);
       }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadServices();
+
+      const joinQueueButton = document.getElementById('joinQueueButton');
+      if (joinQueueButton) {
+        joinQueueButton.addEventListener('click', joinQueue);
+      } else {
+        console.error('Join Queue button not found in the DOM.');
+      }
     });
   </script>
 </head>
@@ -78,14 +101,12 @@
   <main>
     <section>
       <h2>Join Queue</h2>
-      <form id="queueForm">
-        <label for="service_id">Choose a transaction:</label>
-        <select id="service_id" name="service_id" required>
-          <option value="" disabled selected>Select a service</option>
-        </select><br><br>
+      <label for="service_id">Choose a transaction:</label>
+      <select id="service_id" name="service_id" required>
+        <option value="" disabled selected>Select a service</option>
+      </select><br><br>
 
-        <button type="submit">Join Queue</button>
-      </form>
+      <button id="joinQueueButton">Join Queue</button>
     </section>
   </main>
 </body>
