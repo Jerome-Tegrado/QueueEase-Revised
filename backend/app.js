@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 const cors = require('cors');
 const { db, initializeDB } = require('./models/database'); // Correct import of db and initializeDB
 const path = require('path');
+const { loginUser, registerUser } = require('./controllers/authController'); // Import the loginUser and registerUser functions
 
 dotenv.config();
 
@@ -26,7 +27,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 
-// New route to fetch services
+// Login route for handling login logic
+app.post('/user/login', loginUser); // Use the loginUser function
+
+// Services route
 app.get('/api/services', (req, res) => {
     const query = `SELECT * FROM services`;
     db.all(query, [], (err, rows) => {
@@ -83,6 +87,7 @@ app.post('/api/admin/users', (req, res) => {
     db.run(
         `INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password, role)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+
         [first_name, last_name, address, zip_code, contact_number, email, password, role || 'user'],
         function (err) {
             if (err) {
@@ -131,39 +136,6 @@ app.delete('/api/admin/users/:id', (req, res) => {
 // Default route (serves index.html)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, '../frontend/index.html'));
-});
-
-// Login route for handling login logic
-app.post('/user/login', (req, res) => {
-    const { email, password } = req.body;
-
-    // Query the database for the user
-    db.get('SELECT * FROM users WHERE email = ?', [email], (err, user) => {
-        if (err) {
-            console.error('Error querying database:', err.message);
-            return res.status(500).send({ message: 'Internal server error.' });
-        }
-
-        if (!user) {
-            // Redirect to register.html if the account does not exist
-            return res.redirect('/register.html');
-        }
-
-        // Check password
-        if (password !== user.password) {
-            // Respond with an error message for invalid password
-            return res.status(401).send('Invalid password.');
-        }
-
-         // Redirect to the appropriate dashboard based on role
-         if (user.role === 'admin') {
-            res.redirect('/admin-dashboard.html');
-        } else if (user.role === 'user') {
-            res.redirect('/user-dashboard.html');
-        } else {
-            res.status(403).send('Invalid role.');
-        }
-    });
 });
 
 // Initialize database
