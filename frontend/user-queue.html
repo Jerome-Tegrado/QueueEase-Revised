@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>User Queue | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script src="/socket.io/socket.io.js"></script> <!-- Include Socket.IO -->
   <script>
+    let socket;
+
     // Load available services for the dropdown
     async function loadServices() {
       try {
@@ -62,8 +65,10 @@
         const result = await response.json();
         if (response.ok) {
           alert(
-            `Joined the queue successfully! Your queue number is: ${result.queue_number} for transaction type: ${result.transaction_type}`
+            `Joined the queue successfully! Your queue number is: ${result.queue_number}`
           );
+          loadUserQueueStatus(); // Reload user-specific status
+          loadLiveQueue(); // Reload the live queue
         } else {
           alert(result.error || 'Failed to join the queue.');
         }
@@ -72,9 +77,62 @@
       }
     }
 
+    // Function to load the user's queue number and position
+    async function loadUserQueueStatus() {
+      const user_id = getUserID();
+      if (!user_id) return;
+
+      try {
+        const response = await fetch(`/api/users/queue/${user_id}`);
+        if (!response.ok) throw new Error('Failed to fetch user queue status.');
+
+        const data = await response.json();
+        const userQueueStatus = document.getElementById('userQueueStatus');
+
+        if (data.queue_number) {
+          userQueueStatus.textContent = `Your Queue Number: ${data.queue_number}`;
+        } else {
+          userQueueStatus.textContent = 'You are not currently in the queue.';
+        }
+      } catch (error) {
+        console.error('Error fetching user queue status:', error);
+      }
+    }
+
+    // Function to load the full queue status
+    async function loadLiveQueue() {
+      try {
+        const response = await fetch('/api/admin/queue');
+        if (!response.ok) throw new Error('Failed to fetch live queue.');
+
+        const queue = await response.json();
+        const liveQueueList = document.getElementById('liveQueue');
+
+        liveQueueList.innerHTML = ''; // Clear existing queue
+
+        queue.forEach(item => {
+          const listItem = document.createElement('li');
+          listItem.textContent = `Queue #${item.queue_number}: ${item.transaction_type} (User ID: ${item.user_id})`;
+          liveQueueList.appendChild(listItem);
+        });
+      } catch (error) {
+        console.error('Error fetching live queue:', error);
+      }
+    }
+
     // Initialize the page
     document.addEventListener('DOMContentLoaded', () => {
       loadServices();
+      loadUserQueueStatus();
+      loadLiveQueue();
+
+      // Set up WebSocket for live updates
+      socket = io();
+      socket.on('queueUpdated', () => {
+        console.log('Queue updated. Reloading live queue...');
+        loadUserQueueStatus();
+        loadLiveQueue();
+      });
 
       const joinQueueButton = document.getElementById('joinQueueButton');
       if (joinQueueButton) {
@@ -104,6 +162,16 @@
       </select><br><br>
 
       <button id="joinQueueButton">Join Queue</button>
+    </section>
+
+    <section>
+      <h2>Your Queue Status</h2>
+      <p id="userQueueStatus">Loading your queue status...</p>
+    </section>
+
+    <section>
+      <h2>Live Queue</h2>
+      <ul id="liveQueue"></ul>
     </section>
   </main>
 </body>

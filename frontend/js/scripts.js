@@ -1,3 +1,4 @@
+// Handle login form submission
 document.getElementById('loginForm').addEventListener('submit', async (event) => {
   event.preventDefault(); // Prevent the default form submission
 
@@ -7,7 +8,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
   console.log('Data sent to backend:', { email, password }); // Debug: Log the submitted data
 
   try {
-    const response = await fetch('/user/login', {
+    const response = await fetch('/api/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -42,4 +43,47 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     console.error('Error during login:', error); // Debug: Log any errors
     alert('An error occurred. Please try again later.');
   }
+});
+
+// WebSocket integration for live updates
+let socket;
+
+// Function to initialize WebSocket
+function initializeSocket() {
+  socket = io(); // Connect to the WebSocket server
+
+  // Listen for queue updates
+  socket.on('queueUpdated', () => {
+    console.log('Queue updated. Refreshing relevant UI...');
+    refreshQueueUI(); // Custom function to refresh queue-related UI
+  });
+
+  // Optional: Additional socket event handlers can be added here
+}
+
+// Function to refresh queue-related UI
+function refreshQueueUI() {
+  if (typeof loadQueue === 'function') {
+    console.log('Refreshing admin live queue...');
+    loadQueue(); // Refresh live queue for admin
+  }
+  if (typeof loadUserQueueStatus === 'function') {
+    console.log('Refreshing user-specific queue status...');
+    loadUserQueueStatus(); // Refresh user-specific queue status
+  }
+  if (typeof loadLiveQueue === 'function') {
+    console.log('Refreshing full live queue display...');
+    loadLiveQueue(); // Refresh full live queue display
+  }
+}
+
+// Common error handling function
+function handleError(error, context = 'Operation') {
+  console.error(`${context} failed:`, error);
+  alert('An error occurred. Please try again.');
+}
+
+// Initialize WebSocket and relevant functionality on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initializeSocket();
 });

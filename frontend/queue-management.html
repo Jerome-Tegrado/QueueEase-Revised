@@ -5,7 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Queue Management | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script src="/socket.io/socket.io.js"></script> <!-- Include Socket.IO -->
   <script>
+    let socket;
+
+    // Load the live queue
     async function loadQueue() {
       try {
         const response = await fetch('/api/admin/queue');
@@ -35,6 +39,7 @@
       }
     }
 
+    // Load completed transactions
     async function loadCompletedTransactions() {
       try {
         const response = await fetch('/api/admin/completed-transactions');
@@ -59,11 +64,13 @@
       }
     }
 
+    // Update queue status
     async function updateQueue(queueNumber, action) {
       try {
         const response = await fetch(`/api/admin/queue/${queueNumber}/${action}`, { method: 'PUT' });
         if (response.ok) {
           alert(`Queue #${queueNumber} ${action}d successfully.`);
+          // Reload data after updating
           loadQueue();
           loadCompletedTransactions();
         } else {
@@ -74,9 +81,18 @@
       }
     }
 
+    // Initialize the page
     document.addEventListener('DOMContentLoaded', () => {
       loadQueue();
       loadCompletedTransactions();
+
+      // Set up WebSocket for live updates
+      socket = io();
+      socket.on('queueUpdated', () => {
+        console.log('Queue updated. Reloading data...');
+        loadQueue();
+        loadCompletedTransactions();
+      });
     });
   </script>
 </head>
