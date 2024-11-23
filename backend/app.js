@@ -2,23 +2,30 @@ const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
 const cors = require('cors');
-const path = require('path');
-const http = require('http'); // Required for WebSocket
+const session = require('express-session'); // Added session support
 const { db, initializeDB } = require('./models/database');
-const { initSocket } = require('./socket'); // Import WebSocket initialization
-const { loginUser } = require('./controllers/authController');
+const path = require('path');
+const { loginUser, registerUser } = require('./controllers/authController');
+const { initSocket } = require('./socket'); // Import socket initialization
 
 dotenv.config();
 
 const app = express();
-const server = http.createServer(app); // Create HTTP server for WebSocket
-
-// Initialize WebSocket
-initSocket(server);
+const http = require('http').createServer(app); // Required for WebSocket server
 
 app.use(cors());
 app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true })); // Parse form data
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// Session middleware
+app.use(
+  session({
+    secret: 'queueease_secret', // Replace with a secure random string
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: false }, // Set `secure: true` when using HTTPS
+  })
+);
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
@@ -32,6 +39,9 @@ app.use(express.static(path.join(__dirname, '../frontend')));
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
+
+// Login route for handling login logic
+app.post('/user/login', loginUser);
 
 // Services route
 app.get('/api/services', (req, res) => {
@@ -53,9 +63,9 @@ app.post('/api/register', (req, res) => {
   }
 
   const query = `
-    INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `;
+        INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    `;
 
   db.run(
     query,
@@ -89,7 +99,8 @@ app.post('/api/admin/users', (req, res) => {
 
   db.run(
     `INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password, role)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+
     [first_name, last_name, address, zip_code, contact_number, email, password, role || 'user'],
     function (err) {
       if (err) {
@@ -107,7 +118,7 @@ app.put('/api/admin/users/:id', (req, res) => {
 
   db.run(
     `UPDATE users SET first_name = ?, last_name = ?, address = ?, zip_code = ?, contact_number = ?, email = ?, password = ?, role = ?
-    WHERE id = ?`,
+        WHERE id = ?`,
     [first_name, last_name, address, zip_code, contact_number, email, password, role, id],
     function (err) {
       if (err) {
@@ -143,8 +154,11 @@ app.get('/', (req, res) => {
 // Initialize database
 initializeDB();
 
+// Initialize WebSocket server
+initSocket(http);
+
 // Server startup
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+http.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });

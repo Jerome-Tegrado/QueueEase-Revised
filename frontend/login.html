@@ -8,28 +8,34 @@
   </head>
   <body>
     <header>
-      <h1>Login</h1>
+      <h1>QueueEase</h1>
     </header>
 
     <main>
       <section>
+        <h2>Login</h2>
         <form id="loginForm">
           <label for="email">Email:</label>
-          <input type="email" id="email" name="email" required /><br /><br />
+          <input type="email" id="email" name="email" placeholder="Enter your email" required /><br /><br />
 
           <label for="password">Password:</label>
           <input
             type="password"
             id="password"
             name="password"
+            placeholder="Enter your password"
             required
           /><br /><br />
 
           <button type="submit">Login</button>
         </form>
+
+        <!-- Placeholder for login feedback messages -->
+        <div id="loginFeedback" class="feedback"></div>
       </section>
     </main>
 
+    <script src="/socket.io/socket.io.js"></script>
     <script src="js/scripts.js"></script>
   </body>
 </html>
