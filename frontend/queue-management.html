@@ -35,12 +35,37 @@
       }
     }
 
+    async function loadCompletedTransactions() {
+      try {
+        const response = await fetch('/api/admin/completed-transactions');
+        if (!response.ok) throw new Error('Failed to fetch completed transactions.');
+
+        const completedTransactions = await response.json();
+        const completedTable = document.getElementById('completedTable');
+        completedTable.innerHTML = '';
+
+        completedTransactions.forEach(item => {
+          const row = document.createElement('tr');
+          row.innerHTML = `
+            <td>${item.queue_number}</td>
+            <td>${item.user_id}</td>
+            <td>${item.transaction_type}</td>
+            <td>${item.status}</td>
+          `;
+          completedTable.appendChild(row);
+        });
+      } catch (error) {
+        console.error('Error loading completed transactions:', error);
+      }
+    }
+
     async function updateQueue(queueNumber, action) {
       try {
         const response = await fetch(`/api/admin/queue/${queueNumber}/${action}`, { method: 'PUT' });
         if (response.ok) {
           alert(`Queue #${queueNumber} ${action}d successfully.`);
           loadQueue();
+          loadCompletedTransactions();
         } else {
           alert('Failed to update queue.');
         }
@@ -49,7 +74,10 @@
       }
     }
 
-    document.addEventListener('DOMContentLoaded', loadQueue);
+    document.addEventListener('DOMContentLoaded', () => {
+      loadQueue();
+      loadCompletedTransactions();
+    });
   </script>
 </head>
 <body>
@@ -76,7 +104,22 @@
         </tr>
       </thead>
       <tbody id="queueTable">
-        <!-- Queue rows will be dynamically generated here -->
+        <!-- Live Queue rows will be dynamically generated here -->
+      </tbody>
+    </table>
+
+    <h2>Completed Transactions</h2>
+    <table border="1">
+      <thead>
+        <tr>
+          <th>Queue Number</th>
+          <th>User ID</th>
+          <th>Transaction Type</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="completedTable">
+        <!-- Completed Transactions rows will be dynamically generated here -->
       </tbody>
     </table>
   </main>

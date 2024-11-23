@@ -1,36 +1,53 @@
-const db = require('../models/database');
+const db = require('../models/database').db; // Ensure correct database reference
 
 // Login User
 exports.loginUser = (req, res) => {
   const { email, password } = req.body;
 
-  // Query the database for the user
-  db.get(`SELECT * FROM users WHERE email = ?`, [email], (err, user) => {
-    if (err) {
-      console.error(err);
-      return res.status(500).send({ message: 'Internal server error.' });
-    }
+  if (!email || !password) {
+    console.error('Missing email or password');
+    return res.status(400).json({ message: 'Email and password are required.' });
+  }
 
-    if (!user) {
-      return res.status(401).send({ message: 'Account not created.', redirect: '/register.html' });
-    }
+  const trimmedEmail = email.trim();
+  const trimmedPassword = password.trim();
+  console.log('Received email:', trimmedEmail);
 
-    // Compare plain-text password
-    if (password !== user.password) {
-      return res.status(401).send({ message: 'Invalid password.' });
-    }
+  db.get(
+    `SELECT * FROM users WHERE email = ? AND password = ?`,
+    [trimmedEmail, trimmedPassword],
+    (err, user) => {
+      if (err) {
+        console.error('Error querying database:', err.message);
+        return res.status(500).json({ message: 'Failed to log in.' });
+      }
 
-    // Determine the role and respond
-    if (user.role === 'admin') {
-      res.status(200).send({ message: 'Welcome, Admin!', role: 'admin', redirect: '/admin-dashboard.html' });
-    } else if (user.role === 'user') {
-      res.status(200).send({ message: 'Welcome, User!', role: 'user', redirect: '/user-dashboard.html' });
-    } else {
-      res.status(403).send({ message: 'Invalid role.' });
+      if (!user) {
+        console.log('No user found for email and password:', trimmedEmail);
+        return res.status(401).json({ message: 'Invalid email or password.' });
+      }
+
+      console.log('User found:', user);
+      // Return user details and redirect based on role
+      if (user.role === 'admin') {
+        return res.status(200).json({
+          message: 'Welcome, Admin!',
+          redirect: 'admin-dashboard.html',
+          user: { id: user.id, email: user.email, role: user.role },
+        });
+      } else if (user.role === 'user') {
+        return res.status(200).json({
+          message: 'Welcome, User!',
+          redirect: 'user-queue.html',
+          user: { id: user.id, email: user.email, role: user.role },
+        });
+      } else {
+        console.log('Unauthorized role:', user.role);
+        return res.status(403).json({ message: 'Unauthorized role.' });
+      }
     }
-  });
+  );
 };
-
 
 // Get the user's queue number
 exports.getUserQueueNumber = (req, res) => {

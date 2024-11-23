@@ -1,19 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const {
-  getAllUsers,
-  manageQueue,
-  sendNotification,
-  getQueue,
-  getAllServices,
-  getCurrentServingQueue, // Added function for current queue
-  updateQueueStatus,      // Added function for queue actions
-  addTransaction          // Added function for user transactions
-} = require('../controllers/adminController');
 const { db } = require('../models/database');
+const TransactionModel = require('../models/transactionModel');
+const { sendNotification } = require('../controllers/adminController');
 
 // User Management
-router.get('/users', getAllUsers);
+
 router.post('/users', (req, res) => {
   const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
   db.run(
@@ -50,7 +42,7 @@ router.put('/users/:id', (req, res) => {
         email || user.email,
         updatedPassword,
         role || user.role,
-        id
+        id,
       ],
       function (err) {
         if (err) return res.status(500).json({ message: 'Error updating user.' });
@@ -68,12 +60,94 @@ router.delete('/users/:id', (req, res) => {
 });
 
 // Queue Management
-router.get('/queue', getQueue);
-router.get('/queue/current', getCurrentServingQueue);
-router.put('/queue/:queueNumber/:action', updateQueueStatus);
+router.get('/queue', (req, res) => {
+  const query = `
+    SELECT 
+      t.queue_number,
+      t.user_id,
+      s.service_name AS transaction_type,
+      t.status
+    FROM transactions t
+    LEFT JOIN services s ON t.service_id = s.service_id
+    WHERE t.status NOT IN ('completed', 'canceled')
+    ORDER BY t.queue_number ASC
+  `;
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to fetch the queue.' });
+    }
+    res.json(rows);
+  });
+});
+
+router.get('/queue/completed', (req, res) => {
+  const query = `
+    SELECT 
+      t.queue_number,
+      t.user_id,
+      s.service_name AS transaction_type,
+      t.status,
+      t.created_at
+    FROM transactions t
+    LEFT JOIN services s ON t.service_id = s.service_id
+    WHERE t.status = 'completed'
+    ORDER BY t.created_at DESC
+  `;
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to fetch completed transactions.' });
+    }
+    res.json(rows);
+  });
+});
+
+
+router.put('/queue/:queueNumber/:action', (req, res) => {
+  const { queueNumber, action } = req.params;
+
+  let status;
+  if (action === 'prioritize') status = 'in-progress';
+  else if (action === 'complete') status = 'completed';
+  else if (action === 'cancel') status = 'canceled';
+  else return res.status(400).json({ error: 'Invalid action.' });
+
+  const updateQuery = `
+    UPDATE transactions 
+    SET status = ? 
+    WHERE queue_number = ?
+  `;
+  db.run(updateQuery, [status, queueNumber], function (err) {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to update queue status.' });
+    }
+
+    // Reassign queue numbers after one completes
+    const reassignQueueQuery = `
+      UPDATE transactions
+      SET queue_number = queue_number - 1
+      WHERE queue_number > ?
+      AND status IN ('waiting', 'in-progress')
+    `;
+    db.run(reassignQueueQuery, [queueNumber], function (err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to reassign queue numbers.' });
+      }
+      res.status(200).json({ message: `Queue #${queueNumber} ${action}d successfully.` });
+    });
+  });
+});
 
 // Services Management
-router.get('/services', getAllServices);
+router.get('/services', (req, res) => {
+  const query = `SELECT * FROM services`;
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.json(rows);
+  });
+});
+
 router.post('/services', (req, res) => {
   const { service_name, description } = req.body;
   db.run(
@@ -85,6 +159,7 @@ router.post('/services', (req, res) => {
     }
   );
 });
+
 router.put('/services/:serviceId', (req, res) => {
   const { serviceId } = req.params;
   const { service_name, description } = req.body;
@@ -97,6 +172,7 @@ router.put('/services/:serviceId', (req, res) => {
     }
   );
 });
+
 router.delete('/services/:serviceId', (req, res) => {
   const { serviceId } = req.params;
   db.run('DELETE FROM services WHERE service_id = ?', [serviceId], function (err) {
@@ -105,8 +181,60 @@ router.delete('/services/:serviceId', (req, res) => {
   });
 });
 
-// Add transaction
-router.post('/transactions', addTransaction);
+// Transactions Management
+router.post('/transactions', (req, res) => {
+  const { user_id, service_id } = req.body;
+
+  if (!user_id || !service_id) {
+    return res.status(400).json({ error: 'User ID and Service ID are required.' });
+  }
+
+  // Check if user has an active transaction
+  const checkTransactionQuery = `
+    SELECT * FROM transactions 
+    WHERE user_id = ? AND status IN ('waiting', 'in-progress')
+  `;
+  db.get(checkTransactionQuery, [user_id], (err, activeTransaction) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error while checking active transactions.' });
+    }
+
+    if (activeTransaction) {
+      return res.status(400).json({
+        error: 'You already have an ongoing transaction. Please complete it before starting a new one.',
+      });
+    }
+
+    // Proceed to create a new transaction
+    const insertTransactionQuery = `
+      INSERT INTO transactions (user_id, service_id, queue_number, status)
+      VALUES (?, ?, (SELECT IFNULL(MAX(queue_number), 0) + 1 FROM transactions), 'waiting')
+    `;
+    db.run(insertTransactionQuery, [user_id, service_id], function (err) {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to create transaction.' });
+      }
+
+      const getQueueNumberQuery = `
+        SELECT queue_number, 
+               (SELECT service_name FROM services WHERE service_id = ?) AS transaction_type 
+        FROM transactions 
+        WHERE transaction_id = ?
+      `;
+      db.get(getQueueNumberQuery, [service_id, this.lastID], (err, transaction) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to fetch transaction details.' });
+        }
+
+        res.status(201).json({
+          message: 'Transaction created successfully!',
+          queue_number: transaction.queue_number,
+          transaction_type: transaction.transaction_type,
+        });
+      });
+    });
+  });
+});
 
 // Notifications
 router.post('/notification', sendNotification);
