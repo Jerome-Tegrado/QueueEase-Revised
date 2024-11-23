@@ -18,29 +18,62 @@ const TransactionModel = {
             }
 
             // If no active transaction, proceed to create a new transaction
-            const getMaxQueueNumberQuery = `
-                SELECT MAX(queue_number) AS max_queue_number 
-                FROM transactions
+            const insertQuery = `
+                INSERT INTO transactions (user_id, service_id, status)
+                VALUES (?, ?, 'waiting')
             `;
-            db.get(getMaxQueueNumberQuery, [], (err, row) => {
+            db.run(insertQuery, [transaction.user_id, transaction.service_id], function (err) {
                 if (err) {
                     return callback(err);
                 }
 
-                // Determine the next queue number
-                const nextQueueNumber = (row.max_queue_number || 0) + 1;
+                // After inserting the transaction, reorder the queue
+                TransactionModel.reorderQueue((reorderErr) => {
+                    if (reorderErr) {
+                        return callback(reorderErr);
+                    }
 
-                const insertQuery = `
-                    INSERT INTO transactions (user_id, service_id, queue_number, status)
-                    VALUES (?, ?, ?, ?)
-                `;
-                db.run(insertQuery, [
-                    transaction.user_id,
-                    transaction.service_id,
-                    nextQueueNumber,
-                    transaction.status || 'waiting'
-                ], callback);
+                    // Return the new transaction details
+                    callback(null, { transaction_id: this.lastID, message: 'Transaction added successfully.' });
+                });
             });
+        });
+    },
+
+    reorderQueue: (callback) => {
+        // Fetch all `waiting` and `in-progress` transactions ordered by creation time
+        const fetchQuery = `
+            SELECT transaction_id 
+            FROM transactions 
+            WHERE status IN ('waiting', 'in-progress')
+            ORDER BY created_at ASC
+        `;
+        db.all(fetchQuery, [], (err, rows) => {
+            if (err) {
+                return callback(err);
+            }
+
+            // Dynamically assign new queue numbers starting from 1
+            const updateQueries = rows.map((row, index) => {
+                return new Promise((resolve, reject) => {
+                    const updateQuery = `
+                        UPDATE transactions 
+                        SET queue_number = ? 
+                        WHERE transaction_id = ?
+                    `;
+                    db.run(updateQuery, [index + 1, row.transaction_id], (updateErr) => {
+                        if (updateErr) {
+                            return reject(updateErr);
+                        }
+                        resolve();
+                    });
+                });
+            });
+
+            // Execute all update queries
+            Promise.all(updateQueries)
+                .then(() => callback(null))
+                .catch(callback);
         });
     },
 
@@ -61,15 +94,23 @@ const TransactionModel = {
             FROM transactions
             LEFT JOIN services ON transactions.service_id = services.service_id
             WHERE transactions.status = 'waiting'
-            ORDER BY transactions.created_at ASC
+            ORDER BY created_at ASC
             LIMIT 1
         `;
         db.get(query, [], callback);
     },
 
     updateTransactionStatus: (transaction_id, status, callback) => {
-        const query = `UPDATE transactions SET status = ? WHERE transaction_id = ?`;
-        db.run(query, [status, transaction_id], callback);
+        // Update transaction status
+        const updateQuery = `UPDATE transactions SET status = ? WHERE transaction_id = ?`;
+        db.run(updateQuery, [status, transaction_id], (err) => {
+            if (err) {
+                return callback(err);
+            }
+
+            // Reorder the queue after updating the status
+            TransactionModel.reorderQueue(callback);
+        });
     },
 
     getQueueForAllUsers: (callback) => {
@@ -79,7 +120,7 @@ const TransactionModel = {
             FROM transactions
             LEFT JOIN users ON transactions.user_id = users.id
             WHERE transactions.status IN ('waiting', 'in-progress')
-            ORDER BY transactions.queue_number ASC
+            ORDER BY queue_number ASC
         `;
         db.all(query, [], callback);
     },

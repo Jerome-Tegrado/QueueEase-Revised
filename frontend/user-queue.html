@@ -65,7 +65,7 @@
         const result = await response.json();
         if (response.ok) {
           alert(
-            `Joined the queue successfully! Your queue number is: ${result.queue_number} for transaction type: ${result.transaction_type}`
+            `Joined the queue successfully! Your position in the queue is dynamically calculated and will update as needed.`
           );
 
           // Notify the server about the queue update
@@ -79,9 +79,28 @@
     }
 
     // Listen for real-time updates on the user's queue
+    async function checkUserQueueStatus() {
+      const user_id = getUserID();
+      if (!user_id) return;
+
+      try {
+        const response = await fetch(`/api/user/queue/${user_id}`);
+        if (!response.ok) throw new Error('Failed to fetch user queue status.');
+
+        const queueData = await response.json();
+        if (queueData.display_queue_number) {
+          alert(`Your current position in the queue is: ${queueData.display_queue_number}`);
+        } else {
+          alert(`You are no longer in the queue or your transaction is complete.`);
+        }
+      } catch (error) {
+        console.error('Error fetching user queue status:', error);
+      }
+    }
+
     socket.on('userQueueUpdated', (data) => {
       console.log('Your queue status has been updated:', data);
-      alert(`Your current queue number is: ${data.queue_number}`);
+      checkUserQueueStatus(); // Dynamically update the user's position
     });
 
     // Initialize the page
@@ -94,6 +113,9 @@
       } else {
         console.error('Join Queue button not found in the DOM.');
       }
+
+      // Periodically check the user's queue status
+      setInterval(checkUserQueueStatus, 30000); // Check every 30 seconds
     });
   </script>
 </head>

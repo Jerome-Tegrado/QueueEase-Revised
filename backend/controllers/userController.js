@@ -29,10 +29,8 @@ exports.loginUser = (req, res) => {
 
       console.log('User found:', user);
 
-      // Store user ID in session for unique user identification
       req.session.user_id = user.id;
 
-      // Return user details and redirect based on role
       if (user.role === 'admin') {
         return res.status(200).json({
           message: 'Welcome, Admin!',
@@ -75,12 +73,10 @@ exports.getUserQueueNumber = (req, res) => {
 exports.addUserTransaction = (req, res) => {
   const { user_id, service_id } = req.body;
 
-  // Ensure the user_id is from the session for uniqueness
   if (req.session.user_id !== user_id) {
     return res.status(403).json({ message: 'Unauthorized action.' });
   }
 
-  // Check if the user already has an active transaction
   const checkTransactionQuery = `
     SELECT * FROM transactions 
     WHERE user_id = ? AND status IN ('waiting', 'in-progress')
@@ -96,32 +92,24 @@ exports.addUserTransaction = (req, res) => {
       return res.status(400).json({ message: 'You already have an ongoing transaction. Complete it before starting a new one.' });
     }
 
-    // If no active transaction, proceed to add a new transaction
-    const getMaxQueueNumberQuery = `
-      SELECT MAX(queue_number) AS max_queue_number 
-      FROM transactions
+    const insertQuery = `
+      INSERT INTO transactions (user_id, service_id, status)
+      VALUES (?, ?, 'waiting')
     `;
-    db.get(getMaxQueueNumberQuery, [], (err, row) => {
+    db.run(insertQuery, [user_id, service_id], function (err) {
       if (err) {
-        console.error('Error fetching max queue number:', err.message);
-        return res.status(500).json({ message: 'Failed to determine the next queue number.' });
+        console.error('Error adding transaction:', err.message);
+        return res.status(500).json({ message: 'Failed to add transaction.' });
       }
 
-      const nextQueueNumber = (row.max_queue_number || 0) + 1;
-
-      const insertQuery = `
-        INSERT INTO transactions (user_id, service_id, queue_number, status)
-        VALUES (?, ?, ?, 'waiting')
-      `;
-      db.run(insertQuery, [user_id, service_id, nextQueueNumber], function (err) {
-        if (err) {
-          console.error('Error adding transaction:', err.message);
-          return res.status(500).json({ message: 'Failed to add transaction.' });
+      reorderQueue((reorderErr) => {
+        if (reorderErr) {
+          console.error('Error reordering queue:', reorderErr.message);
+          return res.status(500).json({ message: 'Failed to reorder the queue.' });
         }
 
         res.status(201).json({
           transaction_id: this.lastID,
-          queue_number: nextQueueNumber,
           message: 'Transaction added successfully.',
         });
       });
@@ -129,10 +117,33 @@ exports.addUserTransaction = (req, res) => {
   });
 };
 
+// Fetch all transactions for dynamic queue display
+exports.getDynamicQueue = (req, res) => {
+  const query = `
+    SELECT transaction_id, user_id, service_id, status, created_at
+    FROM transactions
+    WHERE status IN ('waiting', 'in-progress')
+    ORDER BY created_at ASC
+  `;
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching active transactions:', err.message);
+      return res.status(500).json({ message: 'Failed to fetch active transactions.' });
+    }
+
+    const dynamicQueue = rows.map((transaction, index) => ({
+      ...transaction,
+      display_queue_number: index + 1, // Dynamically assign queue numbers starting from 1
+    }));
+
+    res.status(200).json(dynamicQueue);
+  });
+};
+
 // Fetch all transactions for queue display
 exports.getAllQueueTransactions = (req, res) => {
   db.all(
-    `SELECT * FROM transactions WHERE status IN ('waiting', 'in-progress') ORDER BY created_at ASC`,
+    `SELECT * FROM transactions WHERE status IN ('waiting', 'in-progress') ORDER BY queue_number ASC`,
     (err, rows) => {
       if (err) {
         console.error('Error fetching transactions:', err.message);
@@ -141,4 +152,39 @@ exports.getAllQueueTransactions = (req, res) => {
       res.json(rows);
     }
   );
+};
+
+// Reorder queue numbers
+const reorderQueue = (callback) => {
+  const fetchQuery = `
+    SELECT transaction_id 
+    FROM transactions 
+    WHERE status IN ('waiting', 'in-progress') 
+    ORDER BY created_at ASC
+  `;
+  db.all(fetchQuery, [], (err, rows) => {
+    if (err) {
+      return callback(err);
+    }
+
+    const updateQueries = rows.map((row, index) => {
+      return new Promise((resolve, reject) => {
+        const updateQuery = `
+          UPDATE transactions 
+          SET queue_number = ? 
+          WHERE transaction_id = ?
+        `;
+        db.run(updateQuery, [index + 1, row.transaction_id], (updateErr) => {
+          if (updateErr) {
+            return reject(updateErr);
+          }
+          resolve();
+        });
+      });
+    });
+
+    Promise.all(updateQueries)
+      .then(() => callback(null))
+      .catch(callback);
+  });
 };
