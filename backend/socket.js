@@ -48,12 +48,13 @@ function notifyQueueUpdate() {
  */
 function notifyUserQueueUpdate(userId, data) {
   if (io) {
-    io.to(userId).emit('userQueueUpdated', data); // Send 'userQueueUpdated' event to the user's room
-    console.log(`Queue update notification sent to user ID: ${userId}`);
+    io.to(userId.toString()).emit('userQueueUpdated', data);
+    console.log(`Notification sent to user ID: ${userId}`);
   } else {
-    console.error('WebSocket server is not initialized.');
+    console.error('WebSocket server not initialized.');
   }
 }
+
 
 /**
  * Broadcast an event to update a specific transaction

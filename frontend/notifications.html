@@ -83,7 +83,41 @@
       }
     }
 
-    document.addEventListener("DOMContentLoaded", loadUsers);
+    async function loadCompletedTransactions(limit = 5) {
+      try {
+        const response = await fetch(`/api/admin/completed-transactions?limit=${limit}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch completed transactions.");
+        }
+
+        const transactions = await response.json();
+        const completedTable = document.getElementById("completedTableBody");
+        completedTable.innerHTML = "";
+
+        transactions.forEach((transaction) => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${transaction.queue_number}</td>
+            <td>${transaction.user_id}</td>
+            <td>${transaction.transaction_type}</td>
+            <td>${new Date(transaction.completed_at).toLocaleString()}</td>
+          `;
+          completedTable.appendChild(row);
+        });
+      } catch (error) {
+        console.error("Error loading completed transactions:", error);
+        alert("Error loading completed transactions. Please refresh the page.");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      loadUsers();
+      loadCompletedTransactions(); // Load the latest 5 completed transactions by default
+
+      document.getElementById("seeAllCompleted").addEventListener("click", () => {
+        loadCompletedTransactions(1000); // Load all completed transactions
+      });
+    });
   </script>
 </head>
 <body>
@@ -96,15 +130,36 @@
     </nav>
   </header>
   <main>
-    <h2>Send Notification</h2>
-    <label for="userSelect">Select User:</label>
-    <select id="userSelect" required>
-      <!-- Dynamically populated -->
-    </select>
-    <br><br>
-    <textarea id="notificationMessage" placeholder="Type your notification here" rows="5" required></textarea>
-    <br><br>
-    <button onclick="sendNotification()">Send Notification</button>
+    <section>
+      <h2>Send Notification</h2>
+      <label for="userSelect">Select User:</label>
+      <select id="userSelect" required>
+        <!-- Dynamically populated -->
+      </select>
+      <br><br>
+      <textarea id="notificationMessage" placeholder="Type your notification here" rows="5" required></textarea>
+      <br><br>
+      <button onclick="sendNotification()">Send Notification</button>
+    </section>
+
+    <section>
+      <h2>Latest Completed Transactions</h2>
+      <table border="1">
+        <thead>
+          <tr>
+            <th>Queue Number</th>
+            <th>User ID</th>
+            <th>Transaction Type</th>
+            <th>Completed At</th>
+          </tr>
+        </thead>
+        <tbody id="completedTableBody">
+          <!-- Latest completed transactions will be dynamically populated here -->
+        </tbody>
+      </table>
+      <br>
+      <button id="seeAllCompleted">See All Completed Transactions</button>
+    </section>
   </main>
 </body>
 </html>

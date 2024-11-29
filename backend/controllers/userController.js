@@ -133,12 +133,14 @@ exports.getAllQueueTransactions = (req, res) => {
   );
 };
 
-// Fetch user notifications
 exports.getUserNotifications = (req, res) => {
   const { userId } = req.params;
 
   db.all(
-    `SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC`,
+    `SELECT * 
+     FROM notifications 
+     WHERE user_id = ? AND status = 'unread'
+     ORDER BY created_at DESC`,
     [userId],
     (err, rows) => {
       if (err) {
@@ -149,6 +151,7 @@ exports.getUserNotifications = (req, res) => {
     }
   );
 };
+
 
 // Update transaction status and send notifications
 exports.updateTransactionStatus = (req, res) => {

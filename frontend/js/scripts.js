@@ -38,30 +38,19 @@ document.getElementById('loginForm')?.addEventListener('submit', async (event) =
 // Listen for user-specific queue updates
 socket.on('userQueueUpdated', (data) => {
   const notificationsContainer = document.getElementById('notificationsContainer');
-
-  if (notificationsContainer) {
-    const notificationCard = `
-      <div class="notification-card">
-        <p>${data.message}</p>
-        <span>${new Date().toLocaleString()}</span>
-      </div>
-    `;
-    notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
-
-    // Optional: Update notification badge
-    const notificationBadge = document.getElementById('notificationBadge');
-    if (notificationBadge) {
-      notificationBadge.textContent = parseInt(notificationBadge.textContent || 0) + 1;
-    }
-    alert(`Your queue status has been updated: ${data.message}`);
+  if (!notificationsContainer) {
+    console.error('Notifications container not found.');
+    return;
   }
+  const notificationCard = `
+      <div class="notification-card">
+          <p>${data.message}</p>
+          <span>${new Date().toLocaleString()}</span>
+      </div>
+  `;
+  notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
 });
 
-// Listen for global queue updates
-socket.on('queueUpdated', () => {
-  console.log('Queue updated.');
-  refreshQueueDisplay();
-});
 
 // Listen for next queue notifications
 socket.on('nextQueueNotification', (data) => {
@@ -78,7 +67,7 @@ socket.on('nextQueueNotification', (data) => {
   alert(`Notification: ${data.message}`);
 });
 
-// Listen for real-time notifications
+// Listen for real-time transaction updates (in-progress and completed)
 socket.on('transactionStatusUpdate', (data) => {
   const notificationsContainer = document.getElementById('notificationsContainer');
   const notificationCard = `
@@ -88,7 +77,7 @@ socket.on('transactionStatusUpdate', (data) => {
       </div>
   `;
   if (notificationsContainer) {
-      notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
+    notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
   }
   alert(`Notification: ${data.message}`);
 });
@@ -118,12 +107,12 @@ async function refreshQueueDisplay() {
 }
 
 // Fetch and display user notifications
-async function loadNotifications() {
+async function loadNotifications(limit = 5) {
   try {
     const userId = localStorage.getItem('id');
     if (!userId) throw new Error('User not logged in.');
 
-    const response = await fetch(`/api/users/notifications/${userId}`);
+    const response = await fetch(`/api/users/notifications/${userId}?limit=${limit}`);
     if (!response.ok) throw new Error('Failed to fetch notifications.');
 
     const notifications = await response.json();
@@ -154,6 +143,11 @@ async function loadNotifications() {
   }
 }
 
+// Load all notifications on user request
+async function loadAllNotifications() {
+  await loadNotifications(1000);
+}
+
 // Automatically fetch notifications on page load
 document.addEventListener('DOMContentLoaded', () => {
   const notificationsContainer = document.getElementById('notificationsContainer');
@@ -163,6 +157,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const userId = localStorage.getItem('id');
     if (userId) {
       socket.emit('registerUser', userId);
+    }
+
+    const loadAllBtn = document.getElementById('loadAllNotifications');
+    if (loadAllBtn) {
+      loadAllBtn.addEventListener('click', loadAllNotifications);
     }
   }
 });

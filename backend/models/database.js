@@ -51,13 +51,14 @@ const initializeDB = () => {
     // Notifications Table
     db.run(`
       CREATE TABLE IF NOT EXISTS notifications (
-        notification_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id INTEGER, -- Foreign key to users
-        message TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+          notification_id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id INTEGER,
+          message TEXT,
+          status TEXT DEFAULT 'unread', -- Add status field
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
-    `);
+  `);
 
     // Services Table
     db.run(`
