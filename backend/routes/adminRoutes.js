@@ -120,41 +120,116 @@ router.put('/queue/:queueNumber/:action', (req, res) => {
   db.run(updateQuery, [status, queueNumber], function (err) {
       if (err) return res.status(500).json({ error: 'Failed to update queue status.' });
 
-      // Fetch the transaction for notification
+      console.log(`Transaction with queue #${queueNumber} updated to ${status}`);
+
+      // Fetch the current transaction details
       const fetchTransactionQuery = `SELECT user_id FROM transactions WHERE queue_number = ?`;
       db.get(fetchTransactionQuery, [queueNumber], (err, transaction) => {
           if (err || !transaction) {
-              console.error('Transaction fetch failed for notifications:', err?.message);
+              console.error('Failed to fetch transaction for notifications:', err?.message);
               return res.status(500).json({ error: 'Failed to fetch transaction for notification.' });
           }
 
-          if (status === 'completed') {
-              // Notify the user their transaction is completed
+          // Notify the user about the current status
+          if (status === 'in-progress') {
               db.run(
                   `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
-                  [transaction.user_id, `Transaction #${queueNumber} is completed.`],
+                  [transaction.user_id, `Your transaction #${queueNumber} is now in progress.`],
                   (notifErr) => {
                       if (notifErr) {
                           console.error('Failed to notify user:', notifErr.message);
+                      } else {
+                          console.log(`Notification sent to user #${transaction.user_id} for in-progress.`);
                       }
                   }
               );
 
-              // Move the next user in queue to in-progress and notify
-              const nextTransactionQuery = `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`;
-              db.get(nextTransactionQuery, [], (nextErr, nextTransaction) => {
+              // Notify the next user in line
+              const nextUserQuery = `SELECT queue_number, user_id FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`;
+              db.get(nextUserQuery, [], (err, nextTransaction) => {
                   if (nextTransaction) {
-                      db.run(`UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`, [nextTransaction.transaction_id]);
                       db.run(
                           `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
-                          [nextTransaction.user_id, `You are next. Please be prepared.`],
-                          (notifNextErr) => {
-                              if (notifNextErr) {
-                                  console.error('Failed to notify next user:', notifNextErr.message);
+                          [nextTransaction.user_id, 'You are next in line. Please be ready.'],
+                          (nextNotifErr) => {
+                              if (nextNotifErr) {
+                                  console.error('Failed to notify the next user:', nextNotifErr.message);
+                              } else {
+                                  console.log(`Notification sent to user #${nextTransaction.user_id} (next in line).`);
                               }
                           }
                       );
                   }
+              });
+          } else if (status === 'completed') {
+              // Notify the current user that their transaction is completed
+              db.run(
+                  `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+                  [transaction.user_id, `Transaction #${queueNumber} has been completed.`],
+                  (notifErr) => {
+                      if (notifErr) {
+                          console.error('Failed to notify user for completed transaction:', notifErr.message);
+                      } else {
+                          console.log(`Notification sent to user #${transaction.user_id} for completed transaction.`);
+                      }
+                  }
+              );
+
+              // Move the next transaction to "in-progress" automatically
+              const nextTransactionQuery = `SELECT queue_number, user_id FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`;
+              db.get(nextTransactionQuery, [], (err, nextTransaction) => {
+                  if (!nextTransaction) {
+                      console.log('No more transactions in the waiting queue.');
+                      return; // Exit if no more waiting transactions
+                  }
+
+                  db.run(
+                      `UPDATE transactions SET status = 'in-progress' WHERE queue_number = ?`,
+                      [nextTransaction.queue_number],
+                      (updateErr) => {
+                          if (updateErr) {
+                              console.error('Failed to move next transaction to in-progress:', updateErr.message);
+                          } else {
+                              console.log(`Transaction #${nextTransaction.queue_number} moved to in-progress.`);
+                          }
+                      }
+                  );
+
+                  // Notify the next user that their transaction is now in progress
+                  db.run(
+                      `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+                      [nextTransaction.user_id, 'Your transaction is now in progress.'],
+                      (nextNotifErr) => {
+                          if (nextNotifErr) {
+                              console.error('Failed to notify next user for in-progress:', nextNotifErr.message);
+                          } else {
+                              console.log(`Notification sent to user #${nextTransaction.user_id} for in-progress.`);
+                          }
+                      }
+                  );
+
+                  // Notify the user after the next user (if applicable)
+                  const nextNextUserQuery = `SELECT user_id FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1 OFFSET 1`;
+                  db.get(nextNextUserQuery, [], (err, nextNextTransaction) => {
+                      if (nextNextTransaction) {
+                          db.run(
+                              `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+                              [nextNextTransaction.user_id, 'You are next in line. Please be ready.'],
+                              (nextNextNotifErr) => {
+                                  if (nextNextNotifErr) {
+                                      console.error(
+                                          'Failed to notify the user next after the current in-progress:',
+                                          nextNextNotifErr.message
+                                      );
+                                  } else {
+                                      console.log(
+                                          `Notification sent to user #${nextNextTransaction.user_id} (next after current in-progress).`
+                                      );
+                                  }
+                              }
+                          );
+                      }
+                  });
               });
           }
 
@@ -162,6 +237,7 @@ router.put('/queue/:queueNumber/:action', (req, res) => {
       });
   });
 });
+
 
 
 
