@@ -9,6 +9,7 @@
   <script>
     const socket = io(); // Initialize WebSocket connection
 
+    // Load live queue data
     async function loadQueue() {
       try {
         const response = await fetch('/api/admin/queue');
@@ -16,17 +17,18 @@
 
         const queue = await response.json();
         const queueTable = document.getElementById('queueTable');
-        queueTable.innerHTML = '';
+        queueTable.innerHTML = ''; // Clear existing rows
 
         queue.forEach(item => {
           const row = document.createElement('tr');
+          row.id = `queueRow-${item.queue_number}`;
           row.innerHTML = `
             <td>${item.queue_number}</td>
             <td>${item.user_id}</td>
             <td>${item.transaction_type}</td>
             <td>${item.status}</td>
             <td>
-              <button onclick="updateQueue(${item.queue_number}, 'prioritize')">Prioritize</button>
+
               <button onclick="updateQueue(${item.queue_number}, 'complete')">Complete</button>
               <button onclick="updateQueue(${item.queue_number}, 'cancel')">Cancel</button>
             </td>
@@ -38,6 +40,7 @@
       }
     }
 
+    // Load completed transactions
     async function loadCompletedTransactions() {
       try {
         const response = await fetch('/api/admin/completed-transactions');
@@ -45,7 +48,7 @@
 
         const completedTransactions = await response.json();
         const completedTable = document.getElementById('completedTable');
-        completedTable.innerHTML = '';
+        completedTable.innerHTML = ''; // Clear existing rows
 
         completedTransactions.forEach(item => {
           const row = document.createElement('tr');
@@ -62,15 +65,16 @@
       }
     }
 
+    // Update queue status
     async function updateQueue(queueNumber, action) {
       try {
         const response = await fetch(`/api/admin/queue/${queueNumber}/${action}`, { method: 'PUT' });
         if (response.ok) {
           alert(`Queue #${queueNumber} ${action}d successfully.`);
-          loadQueue();
-          loadCompletedTransactions();
+          socket.emit('queueUpdated'); // Notify all clients to refresh queue
         } else {
-          alert('Failed to update queue.');
+          const errorData = await response.json();
+          alert(`Failed to update queue: ${errorData.error}`);
         }
       } catch (error) {
         console.error('Error updating queue:', error);
@@ -81,14 +85,18 @@
     socket.on('queueUpdated', () => {
       console.log('Queue update received. Reloading queue...');
       loadQueue();
+      loadCompletedTransactions();
     });
 
     socket.on('transactionUpdated', (transaction) => {
       console.log('Transaction update received:', transaction);
-      loadQueue();
-      loadCompletedTransactions();
+      const row = document.getElementById(`queueRow-${transaction.queue_number}`);
+      if (row) {
+        row.querySelector('td:nth-child(4)').textContent = transaction.status;
+      }
     });
 
+    // Initialize on page load
     document.addEventListener('DOMContentLoaded', () => {
       loadQueue();
       loadCompletedTransactions();
@@ -107,36 +115,40 @@
   </header>
 
   <main>
-    <h2>Live Queue</h2>
-    <table border="1">
-      <thead>
-        <tr>
-          <th>Queue Number</th>
-          <th>User ID</th>
-          <th>Transaction Type</th>
-          <th>Status</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody id="queueTable">
-        <!-- Live Queue rows will be dynamically generated here -->
-      </tbody>
-    </table>
+    <section>
+      <h2>Live Queue</h2>
+      <table border="1">
+        <thead>
+          <tr>
+            <th>Queue Number</th>
+            <th>User ID</th>
+            <th>Transaction Type</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="queueTable">
+          <!-- Live Queue rows will be dynamically generated here -->
+        </tbody>
+      </table>
+    </section>
 
-    <h2>Completed Transactions</h2>
-    <table border="1">
-      <thead>
-        <tr>
-          <th>Queue Number</th>
-          <th>User ID</th>
-          <th>Transaction Type</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody id="completedTable">
-        <!-- Completed Transactions rows will be dynamically generated here -->
-      </tbody>
-    </table>
+    <section>
+      <h2>Completed Transactions</h2>
+      <table border="1">
+        <thead>
+          <tr>
+            <th>Queue Number</th>
+            <th>User ID</th>
+            <th>Transaction Type</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="completedTable">
+          <!-- Completed Transactions rows will be dynamically generated here -->
+        </tbody>
+      </table>
+    </section>
   </main>
 </body>
 </html>

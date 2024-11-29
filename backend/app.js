@@ -6,7 +6,13 @@ const session = require('express-session'); // Added session support
 const { db, initializeDB } = require('./models/database');
 const path = require('path');
 const { loginUser, registerUser } = require('./controllers/authController');
-const { initSocket } = require('./socket'); // Import socket initialization
+const {
+  initSocket,
+  notifyQueueUpdate,
+  notifyUserQueueUpdate,
+  notifyTransactionUpdate,
+  notifyNextUser,
+} = require('./socket'); // Import socket functions
 
 dotenv.config();
 
@@ -100,7 +106,6 @@ app.post('/api/admin/users', (req, res) => {
   db.run(
     `INSERT INTO users (first_name, last_name, address, zip_code, contact_number, email, password, role)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-
     [first_name, last_name, address, zip_code, contact_number, email, password, role || 'user'],
     function (err) {
       if (err) {
@@ -144,6 +149,96 @@ app.delete('/api/admin/users/:id', (req, res) => {
     }
     res.status(200).json({ message: 'User deleted successfully.' });
   });
+});
+// Edited: Verified WebSocket initialization and notifications logic
+initSocket(http);
+
+app.post('/api/admin/notification', (req, res) => {
+  const { user_id, message } = req.body;
+
+  db.run(
+    `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+    [user_id, message],
+    (err) => {
+      if (err) return res.status(500).json({ message: 'Failed to send notification.' });
+
+      notifyUserQueueUpdate(user_id, { message }); // Emit WebSocket event
+      res.status(200).json({ message: 'Notification sent successfully.' });
+    }
+  );
+});
+
+
+app.post('/api/admin/system-notification', (req, res) => {
+  const { message } = req.body;
+  db.run(
+    `INSERT INTO notifications (user_id, message) VALUES (NULL, ?)`,
+    [message],
+    (err) => {
+      if (err) return res.status(500).json({ message: 'Failed to send system-wide notification.' });
+
+      // Notify all users via WebSocket
+      notifyQueueUpdate();
+      res.status(200).json({ message: 'System-wide notification sent successfully.' });
+    }
+  );
+});
+
+// Trigger automatic notifications on transaction updates
+app.post('/api/transactions/update', (req, res) => {
+  const { transaction_id, status } = req.body;
+
+  db.run(
+    `UPDATE transactions SET status = ? WHERE transaction_id = ?`,
+    [status, transaction_id],
+    function (err) {
+      if (err) {
+        console.error('Error updating transaction:', err.message);
+        return res.status(500).json({ message: 'Failed to update transaction.' });
+      }
+
+      db.get(
+        `SELECT * FROM transactions WHERE transaction_id = ?`,
+        [transaction_id],
+        (err, transaction) => {
+          if (err || !transaction) {
+            console.error('Error fetching updated transaction:', err?.message || 'Transaction not found.');
+            return res.status(500).json({ message: 'Failed to fetch updated transaction.' });
+          }
+
+          // Notify the current user about status change
+          const message =
+            status === 'in-progress'
+              ? 'It is now your time to be served.'
+              : 'Your transaction has been successfully completed.';
+          notifyTransactionUpdate({ user_id: transaction.user_id, message });
+
+          // Notify the next user in queue
+          if (status === 'completed') {
+            db.get(
+              `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`,
+              (err, nextTransaction) => {
+                if (!err && nextTransaction) {
+                  notifyNextUser(nextTransaction.user_id, { message: 'You are next. Please be prepared.' });
+
+                  // Update next transaction status
+                  db.run(
+                    `UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`,
+                    [nextTransaction.transaction_id],
+                    (err) => {
+                      if (err) console.error('Error updating next transaction:', err.message);
+                    }
+                  );
+                }
+              }
+            );
+          }
+
+          res.status(200).json({ message: 'Transaction updated successfully.' });
+        }
+      );
+    }
+  );
 });
 
 // Default route (serves index.html)

@@ -17,10 +17,11 @@ function initSocket(server) {
   io.on('connection', (socket) => {
     console.log(`A user connected: ${socket.id}`);
 
-    // Store user ID on connection (if provided)
+    // Register user to a specific room based on user ID
     socket.on('registerUser', (userId) => {
       socket.user_id = userId;
-      console.log(`User registered with ID: ${userId}`);
+      socket.join(userId); // Add user to a room with their user ID
+      console.log(`User registered with ID: ${userId} and added to room.`);
     });
 
     // Handle user disconnects
@@ -30,35 +31,25 @@ function initSocket(server) {
   });
 }
 
-/**
- * Notify all connected clients about a queue update
- */
+// Edited: Simplified WebSocket notification logic
 function notifyQueueUpdate() {
   if (io) {
-    io.emit('queueUpdated'); // Broadcast 'queueUpdated' event to all clients
-    console.log('Queue update notification sent to all clients.');
+    io.emit('queueUpdated'); // Notify all clients
+    console.log('Queue updated notification sent.');
   } else {
-    console.error('WebSocket server is not initialized.');
+    console.error('WebSocket server not initialized.');
   }
 }
 
 /**
  * Notify a specific user about their queue update
  * @param {String} userId - The ID of the user to notify
- * @param {Object} data - Additional data to send
+ * @param {Object} data - Notification data to send
  */
 function notifyUserQueueUpdate(userId, data) {
   if (io) {
-    const targetSocket = Array.from(io.sockets.sockets.values()).find(
-      (socket) => socket.user_id === userId
-    );
-
-    if (targetSocket) {
-      targetSocket.emit('userQueueUpdated', data); // Send 'userQueueUpdated' event to the specific user
-      console.log(`Queue update notification sent to user: ${userId}`);
-    } else {
-      console.warn(`No connected socket found for user: ${userId}`);
-    }
+    io.to(userId).emit('userQueueUpdated', data); // Send 'userQueueUpdated' event to the user's room
+    console.log(`Queue update notification sent to user ID: ${userId}`);
   } else {
     console.error('WebSocket server is not initialized.');
   }
@@ -77,4 +68,44 @@ function notifyTransactionUpdate(transaction) {
   }
 }
 
-module.exports = { initSocket, notifyQueueUpdate, notifyUserQueueUpdate, notifyTransactionUpdate };
+/**
+ * Notify the next user in line about their queue status
+ * @param {String} nextUserId - The ID of the next user
+ * @param {Object} data - Notification data for the next user
+ */
+function notifyNextUser(nextUserId, data) {
+  if (io) {
+    io.to(nextUserId).emit('nextQueueNotification', data); // Notify next user
+    console.log(`Next queue notification sent to user ID: ${nextUserId}`);
+  } else {
+    console.error('WebSocket server is not initialized.');
+  }
+}
+
+/**
+ * Notify a user about a system-wide message or alert
+ * @param {String} userId - The ID of the user to notify, or null for all users
+ * @param {Object} data - Notification data
+ */
+function notifySystemMessage(userId, data) {
+  if (io) {
+    if (userId) {
+      io.to(userId).emit('systemNotification', data); // Send system notification to specific user
+      console.log(`System notification sent to user ID: ${userId}`);
+    } else {
+      io.emit('systemNotification', data); // Broadcast to all users
+      console.log('System-wide notification sent to all users.');
+    }
+  } else {
+    console.error('WebSocket server is not initialized.');
+  }
+}
+
+module.exports = {
+  initSocket,
+  notifyQueueUpdate,
+  notifyUserQueueUpdate,
+  notifyTransactionUpdate,
+  notifyNextUser, // Exported for next user notifications
+  notifySystemMessage, // Added function for system-wide notifications
+};

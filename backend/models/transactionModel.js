@@ -100,21 +100,59 @@ const TransactionModel = {
         db.get(query, [], callback);
     },
 
-    updateTransactionStatus: (transaction_id, status, callback) => {
-        // Update transaction status
-        const updateQuery = `UPDATE transactions SET status = ? WHERE transaction_id = ?`;
-        db.run(updateQuery, [status, transaction_id], (err) => {
-            if (err) {
-                return callback(err);
+    updateTransactionStatus: async (transaction_id, status, callback) => {
+        try {
+            // Step 1: Update the transaction status
+            const updateQuery = `UPDATE transactions SET status = ? WHERE transaction_id = ?`;
+            await db.run(updateQuery, [status, transaction_id]);
+
+            // Fetch the updated transaction details
+            const transaction = await db.get(`
+                SELECT * FROM transactions WHERE transaction_id = ?`, [transaction_id]);
+
+            // Step 2: Handle notifications based on the new status
+            if (status === 'in-progress') {
+                const message = 'It is now your time to be served.';
+                const insertNotificationQuery = `
+                    INSERT INTO notifications (user_id, message)
+                    VALUES (?, ?)`;
+                await db.run(insertNotificationQuery, [transaction.user_id, message]);
             }
 
-            // Reorder the queue after updating the status
-            TransactionModel.reorderQueue(callback);
-        });
+            if (status === 'completed') {
+                const message = 'Your transaction has been successfully completed.';
+                const insertNotificationQuery = `
+                    INSERT INTO notifications (user_id, message)
+                    VALUES (?, ?)`;
+                await db.run(insertNotificationQuery, [transaction.user_id, message]);
+
+                // Step 3: Notify the next user in the queue (move them to 'in-progress')
+                const nextTransaction = await db.get(`
+                    SELECT * FROM transactions
+                    WHERE status = 'waiting'
+                    ORDER BY queue_number ASC
+                    LIMIT 1
+                `);
+
+                if (nextTransaction) {
+                    // Update the next user's status to 'in-progress'
+                    const updateNextStatusQuery = `
+                        UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`;
+                    await db.run(updateNextStatusQuery, [nextTransaction.transaction_id]);
+
+                    // Notify the next user
+                    const nextMessage = 'You are next. Please be prepared.';
+                    await db.run(insertNotificationQuery, [nextTransaction.user_id, nextMessage]);
+                }
+            }
+
+            callback(null, { message: 'Transaction updated and notifications sent successfully.' });
+        } catch (error) {
+            callback(error);
+        }
     },
 
     getQueueForAllUsers: (callback) => {
-        // Retrieve the queue for all users to dynamically update the queue UI
         const query = `
             SELECT transactions.*, users.first_name, users.last_name
             FROM transactions
@@ -133,7 +171,7 @@ const TransactionModel = {
             LIMIT 1
         `;
         db.get(query, [user_id], callback);
-    }
+    },
 };
 
 module.exports = TransactionModel;

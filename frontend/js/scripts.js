@@ -27,7 +27,7 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
     if (response.ok) {
       // Check if user details are returned and store in localStorage
       if (result.user && result.user.id && result.user.email) {
-        localStorage.setItem('id', result.user.id);
+        localStorage.setItem('id', result.user.id); // Ensure the key matches the one used in notifications
         localStorage.setItem('email', result.user.email);
         console.log('User details saved in localStorage:', {
           id: result.user.id,
@@ -54,7 +54,23 @@ document.getElementById('loginForm').addEventListener('submit', async (event) =>
 // Listen for real-time updates to the user's queue
 socket.on('userQueueUpdated', (data) => {
   console.log('User queue update received:', data); // Debug: Log the received data
-  alert(`Your queue status has been updated: ${JSON.stringify(data)}`);
+  const notificationsContainer = document.getElementById('notificationsContainer');
+
+  // Prepend the new notification to the top of the list
+  const notificationCard = `
+    <div class="notification-card">
+      <p>${data.message}</p>
+      <span>${new Date().toLocaleString()}</span>
+    </div>
+  `;
+  notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
+
+  // Optional: Update a notification badge
+  const notificationBadge = document.getElementById('notificationBadge');
+  if (notificationBadge) {
+    notificationBadge.textContent = parseInt(notificationBadge.textContent || 0) + 1;
+  }
+  alert(`Your queue status has been updated: ${data.message}`);
 });
 
 // Listen for global queue updates
@@ -63,6 +79,13 @@ socket.on('queueUpdated', () => {
   refreshQueueDisplay();
 });
 
+// Listen for next queue notifications
+socket.on('nextQueueNotification', (data) => {
+  console.log('Next queue notification received:', data); // Debug
+  alert(`You are now in progress: ${data.message}`);
+});
+
+// Fetch and update the queue display dynamically
 // Fetch and update the queue display dynamically
 async function refreshQueueDisplay() {
   try {
@@ -72,19 +95,69 @@ async function refreshQueueDisplay() {
 
     console.log('Latest queue data:', queueData); // Debug: Log the fetched data
 
-    // Update the queue display on the page
+    // Find the queue container to update the display
     const queueContainer = document.getElementById('queueContainer');
-    queueContainer.innerHTML = ''; // Clear existing content
 
-    // Dynamically populate the queue data
+    // Loop through the queue data and update only the changed items
     queueData.forEach((queueItem) => {
-      const queueElement = document.createElement('div');
-      queueElement.classList.add('queue-item');
-      queueElement.textContent = `Queue #${queueItem.queue_number} - ${queueItem.first_name} ${queueItem.last_name}`;
-      queueContainer.appendChild(queueElement);
+      let queueElement = document.querySelector(`#queueItem-${queueItem.queue_number}`);
+      
+      // If the element doesn't exist, create it
+      if (!queueElement) {
+        queueElement = document.createElement('div');
+        queueElement.id = `queueItem-${queueItem.queue_number}`;  // Set a unique ID
+        queueElement.classList.add('queue-item');
+        queueContainer.appendChild(queueElement);
+      }
+
+      // Update the content of the element
+      queueElement.textContent = `Queue #${queueItem.queue_number} - ${queueItem.first_name} ${queueItem.last_name} (${queueItem.status})`;
     });
   } catch (error) {
     console.error('Error fetching queue data:', error); // Debug: Log any errors
     alert('Failed to refresh the queue. Please try again later.');
   }
 }
+
+
+// Fetch and display user notifications
+async function loadNotifications() {
+  try {
+    const userId = localStorage.getItem('id'); // Ensure the key matches the stored user ID
+    if (!userId) throw new Error('User not logged in.');
+
+    const response = await fetch(`/api/users/notifications/${userId}`);
+    if (!response.ok) throw new Error('Failed to fetch notifications.');
+
+    const notifications = await response.json();
+    const notificationsContainer = document.getElementById('notificationsContainer');
+
+    if (notifications.length > 0) {
+      notificationsContainer.innerHTML = notifications.map(notification => `
+        <div class="notification-card">
+          <p>${notification.message}</p>
+          <span>${new Date(notification.created_at).toLocaleString()}</span>
+        </div>
+      `).join('');
+    } else {
+      notificationsContainer.innerHTML = "<p>No notifications found.</p>";
+    }
+  } catch (error) {
+    console.error('Error loading notifications:', error);
+    document.getElementById('notificationsContainer').innerHTML =
+      "<p>Error loading notifications. Please try again later.</p>";
+  }
+}
+
+// Automatically fetch notifications on page load if the container exists
+document.addEventListener('DOMContentLoaded', () => {
+  if (document.getElementById('notificationsContainer')) {
+    loadNotifications();
+
+    // Register the user for WebSocket real-time updates
+    const userId = localStorage.getItem('id');
+    if (userId) {
+      socket.emit('registerUser', userId);
+    }
+  }
+});

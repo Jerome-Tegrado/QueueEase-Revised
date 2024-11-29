@@ -5,46 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Notifications | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script src="/socket.io/socket.io.js"></script> <!-- Include Socket.io client library -->
   <script>
+    // Initialize WebSocket connection
+    const socket = io();
+
     // Function to load user notifications
     async function loadNotifications() {
       try {
-        // Example: Assuming the user_id is stored in localStorage after login
-        const userId = localStorage.getItem("user_id");
+        const userId = localStorage.getItem("id"); // Use the corrected key for user ID
+        console.log('User ID:', userId); // Debug: Log user ID for debugging
         if (!userId) {
           throw new Error("User not logged in.");
         }
 
-        const response = await fetch(`http://localhost:5000/api/user/notifications?user_id=${userId}`);
+        // Fetch user notifications
+        const response = await fetch(`http://localhost:5000/api/users/notifications/${userId}`);
+        console.log('Response:', response); // Debug: Log the response to check if it's correct
         if (!response.ok) {
           throw new Error("Failed to fetch notifications.");
         }
 
-        const notifications = await response.json(); // Parse JSON data
+        const notifications = await response.json();
         const notificationsContainer = document.getElementById("notificationsContainer");
-        const unreadCount = notifications.filter(notification => !notification.read).length;
 
-        // Update the navigation badge with unread count
-        const notificationBadge = document.getElementById("notificationBadge");
-        if (unreadCount > 0) {
-          notificationBadge.textContent = unreadCount; // Show the unread count
-          notificationBadge.style.display = "inline-block"; // Make the badge visible
-        } else {
-          notificationBadge.style.display = "none"; // Hide the badge if no unread notifications
-        }
-
-        notificationsContainer.innerHTML = ""; // Clear existing content
-
+        // If there are no notifications, show a message
         if (notifications.length > 0) {
-          notifications.forEach(notification => {
-            const row = document.createElement("div");
-            row.className = "notification-card";
-            row.innerHTML = `
+          notificationsContainer.innerHTML = notifications.map(notification => `
+            <div class="notification-card">
               <p class="notification-message">${notification.message}</p>
               <span class="notification-date">${new Date(notification.created_at).toLocaleString()}</span>
-            `;
-            notificationsContainer.appendChild(row);
-          });
+            </div>
+          `).join('');
         } else {
           notificationsContainer.innerHTML = "<p>No notifications found.</p>";
         }
@@ -55,8 +47,30 @@
       }
     }
 
+    // Real-time updates via WebSocket
+    // New Code: Updated notification handling
+socket.on('userQueueUpdated', (data) => {
+  const notificationsContainer = document.getElementById('notificationsContainer');
+  const notificationCard = `
+    <div class="notification-card">
+      <p>${data.message}</p>
+      <span>${new Date().toLocaleString()}</span>
+    </div>
+  `;
+  notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
+});
+
+
     // Load notifications on page load
-    document.addEventListener("DOMContentLoaded", loadNotifications);
+    document.addEventListener("DOMContentLoaded", () => {
+      loadNotifications();
+
+      // Register the user for real-time updates
+      const userId = localStorage.getItem("id");
+      if (userId) {
+        socket.emit('registerUser', userId);
+      }
+    });
   </script>
 </head>
 <body>

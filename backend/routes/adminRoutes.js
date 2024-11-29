@@ -2,10 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('../models/database');
 const TransactionModel = require('../models/transactionModel');
-const { sendNotification } = require('../controllers/adminController');
+
+// Import Controllers
+const { sendNotification, sendSystemNotification } = require('../controllers/adminController');
 
 // User Management
-
 router.post('/users', (req, res) => {
   const { first_name, last_name, address, zip_code, contact_number, email, password, role } = req.body;
   db.run(
@@ -104,38 +105,111 @@ router.get('/queue/completed', (req, res) => {
 
 router.put('/queue/:queueNumber/:action', (req, res) => {
   const { queueNumber, action } = req.params;
-
   let status;
-  if (action === 'prioritize') status = 'in-progress';
-  else if (action === 'complete') status = 'completed';
-  else if (action === 'cancel') status = 'canceled';
-  else return res.status(400).json({ error: 'Invalid action.' });
 
+  // Determine the status based on the action
+  switch (action) {
+    case 'prioritize':
+      status = 'in-progress';
+      break;
+    case 'complete':
+      status = 'completed';
+      break;
+    case 'cancel':
+      status = 'canceled';
+      break;
+    default:
+      return res.status(400).json({ error: 'Invalid action.' });
+  }
+
+  // Step 1: Update the specific queue transaction status
   const updateQuery = `
     UPDATE transactions 
     SET status = ? 
-    WHERE queue_number = ?
+    WHERE queue_number = ? 
+      AND status IN ('waiting', 'in-progress')
   `;
   db.run(updateQuery, [status, queueNumber], function (err) {
     if (err) {
       return res.status(500).json({ error: 'Failed to update queue status.' });
     }
 
-    // Reassign queue numbers after one completes
-    const reassignQueueQuery = `
-      UPDATE transactions
-      SET queue_number = queue_number - 1
-      WHERE queue_number > ?
-      AND status IN ('waiting', 'in-progress')
-    `;
-    db.run(reassignQueueQuery, [queueNumber], function (err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to reassign queue numbers.' });
-      }
-      res.status(200).json({ message: `Queue #${queueNumber} ${action}d successfully.` });
-    });
+    // Step 2: Handle queue number reassignment for remaining transactions
+    if (status === 'completed' || status === 'canceled') {
+      const reassignQueueQuery = `
+        UPDATE transactions
+        SET queue_number = queue_number - 1
+        WHERE queue_number > ?
+          AND status IN ('waiting', 'in-progress')
+      `;
+      db.run(reassignQueueQuery, [queueNumber], function (err) {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to reassign queue numbers.' });
+        }
+      });
+    }
+
+    // Step 3: Handle the next transaction if the current action is 'complete'
+    if (status === 'completed') {
+      const nextTransactionQuery = `
+        SELECT * FROM transactions
+        WHERE status = 'waiting'
+        ORDER BY queue_number ASC
+        LIMIT 1
+      `;
+      db.get(nextTransactionQuery, [], (err, nextTransaction) => {
+        if (err) return res.status(500).json({ error: 'Failed to fetch the next transaction.' });
+
+        if (nextTransaction) {
+          // Update the next user's status to 'in-progress'
+          const updateNextStatusQuery = `
+            UPDATE transactions 
+            SET status = 'in-progress' 
+            WHERE transaction_id = ?
+          `;
+          db.run(updateNextStatusQuery, [nextTransaction.transaction_id], (err) => {
+            if (err) {
+              console.error('Failed to update next transaction:', err.message);
+            }
+          });
+
+          // Notify the next user in the queue
+          const nextMessage = 'You are next. Please be prepared.';
+          db.run(
+            `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+            [nextTransaction.user_id, nextMessage],
+            (err) => {
+              if (err) {
+                console.error('Failed to send notification:', err.message);
+              }
+            }
+          );
+        }
+      });
+    }
+
+    // Step 4: Send a system-wide notification if applicable
+    if (status === 'completed' || status === 'canceled') {
+      const systemMessage = `Queue #${queueNumber} has been ${status}.`;
+      db.run(
+        `INSERT INTO notifications (user_id, message) VALUES (NULL, ?)`,
+        [systemMessage],
+        (err) => {
+          if (err) {
+            console.error('Failed to send system notification:', err.message);
+          }
+        }
+      );
+    }
+
+    // Respond with a success message
+    res.status(200).json({ message: `Queue #${queueNumber} ${action}d successfully.` });
   });
 });
+
+
+
+
 
 // Services Management
 router.get('/services', (req, res) => {
@@ -226,17 +300,67 @@ router.post('/transactions', (req, res) => {
           return res.status(500).json({ error: 'Failed to fetch transaction details.' });
         }
 
-        res.status(201).json({
-          message: 'Transaction created successfully!',
-          queue_number: transaction.queue_number,
-          transaction_type: transaction.transaction_type,
+        // Create a notification for the user
+        const insertNotificationQuery = `
+          INSERT INTO notifications (user_id, message)
+          VALUES (?, 'You are now in the queue, please wait for your turn.')
+        `;
+        db.run(insertNotificationQuery, [user_id], (err) => {
+          if (err) {
+            return res.status(500).json({ error: 'Failed to create notification.' });
+          }
+
+          res.status(201).json({
+            message: 'Transaction created successfully!',
+            queue_number: transaction.queue_number,
+            transaction_type: transaction.transaction_type,
+          });
         });
       });
     });
   });
 });
 
+
+// Add the new route for updating transaction status
+router.put('/transactions/:transactionId/status', (req, res) => {
+  const { transactionId } = req.params;
+  const { status } = req.body;
+
+  TransactionModel.updateTransactionStatus(transactionId, status, (err, result) => {
+    if (err) {
+      return res.status(500).json({ error: err.message });
+    }
+    res.status(200).json(result);
+  });
+});
+
+// GET all transactions for admin
+router.get('/transactions', (req, res) => {
+  TransactionModel.getQueueForAllUsers((err, transactions) => {
+    if (err) {
+      return res.status(500).json({ error: 'Failed to retrieve transactions.' });
+    }
+    res.json(transactions);
+  });
+});
+
 // Notifications
-router.post('/notification', sendNotification);
+router.post('/notification', sendNotification); // User-specific notifications
+router.get('/notifications', (req, res) => {
+  const query = `
+      SELECT * 
+      FROM notifications
+      ORDER BY created_at DESC
+  `;
+  db.all(query, [], (err, rows) => {
+      if (err) {
+          return res.status(500).json({ error: 'Failed to fetch notifications.' });
+      }
+      res.json(rows);
+  });
+});
+
+router.post('/system-notification', sendSystemNotification); // System-wide notifications
 
 module.exports = router;

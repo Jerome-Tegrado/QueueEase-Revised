@@ -10,10 +10,13 @@ exports.getAllUsers = (req, res) => {
 
 // Queue Management
 exports.getQueue = (req, res) => {
-  db.all('SELECT * FROM transactions WHERE status NOT IN ("completed", "canceled") ORDER BY queue_number ASC', (err, rows) => {
-    if (err) return res.status(500).json({ message: 'Failed to fetch queue.' });
-    res.json(rows);
-  });
+  db.all(
+    'SELECT * FROM transactions WHERE status NOT IN ("completed", "canceled") ORDER BY queue_number ASC',
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: 'Failed to fetch queue.' });
+      res.json(rows);
+    }
+  );
 };
 
 exports.getCurrentServingQueue = (req, res) => {
@@ -26,9 +29,11 @@ exports.getCurrentServingQueue = (req, res) => {
   );
 };
 
+// Updated Code Snippet for adminController.js
 exports.updateQueueStatus = (req, res) => {
   const { queueNumber, action } = req.params;
   let status;
+
   switch (action) {
     case 'prioritize':
       status = 'in-progress';
@@ -42,25 +47,38 @@ exports.updateQueueStatus = (req, res) => {
     default:
       return res.status(400).json({ message: 'Invalid action.' });
   }
+
   db.run(
     `UPDATE transactions SET status = ? WHERE queue_number = ?`,
     [status, queueNumber],
     function (err) {
       if (err) return res.status(500).json({ message: 'Failed to update queue.' });
 
-      // Reassign queue numbers after one completes
       if (status === 'completed') {
-        const reassignQueueQuery = `
-          UPDATE transactions
-          SET queue_number = queue_number - 1
-          WHERE queue_number > ?
-          AND status IN ('waiting', 'in-progress')
+        const nextTransactionQuery = `
+          SELECT * FROM transactions
+          WHERE status = 'waiting'
+          ORDER BY queue_number ASC
+          LIMIT 1
         `;
-        db.run(reassignQueueQuery, [queueNumber], function (err) {
-          if (err) {
-            return res.status(500).json({ message: 'Failed to reassign queue numbers.' });
+        db.get(nextTransactionQuery, [], (err, nextTransaction) => {
+          if (err) return res.status(500).json({ message: 'Failed to fetch the next transaction.' });
+
+          if (nextTransaction) {
+            db.run(
+              `UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`,
+              [nextTransaction.transaction_id],
+              (err) => {
+                if (err) console.error('Failed to update next transaction:', err.message);
+              }
+            );
+
+            db.run(
+              `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+              [nextTransaction.user_id, 'You are next. Please be prepared.']
+            );
           }
-          res.status(200).json({ message: `Queue #${queueNumber} updated to ${status}.` });
+          res.status(200).json({ message: `Queue #${queueNumber} marked as ${status}.` });
         });
       } else {
         res.status(200).json({ message: `Queue #${queueNumber} updated to ${status}.` });
@@ -68,6 +86,8 @@ exports.updateQueueStatus = (req, res) => {
     }
   );
 };
+
+
 
 // Service Management
 exports.getAllServices = (req, res) => {
@@ -166,10 +186,7 @@ exports.addTransaction = (req, res) => {
   });
 };
 
-
-
-
-// Notifications
+// Notifications Management
 exports.sendNotification = (req, res) => {
   const { user_id, message } = req.body;
   db.run(
@@ -178,6 +195,19 @@ exports.sendNotification = (req, res) => {
     (err) => {
       if (err) return res.status(500).json({ message: 'Failed to send notification.' });
       res.json({ message: 'Notification sent successfully.' });
+    }
+  );
+};
+
+// System-Wide Notifications
+exports.sendSystemNotification = (req, res) => {
+  const { message } = req.body;
+  db.run(
+    `INSERT INTO notifications (user_id, message) VALUES (NULL, ?)`,
+    [message],
+    (err) => {
+      if (err) return res.status(500).json({ message: 'Failed to send system notification.' });
+      res.json({ message: 'System notification sent successfully.' });
     }
   );
 };

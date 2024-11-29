@@ -1,4 +1,6 @@
 const db = require('../models/database').db; // Ensure correct database reference
+const NotificationModel = require('../models/notificationModel'); // Import notification model
+const { io } = require('../socket'); // Import socket instance
 
 // Login User
 exports.loginUser = (req, res) => {
@@ -117,30 +119,7 @@ exports.addUserTransaction = (req, res) => {
   });
 };
 
-// Fetch all transactions for dynamic queue display
-exports.getDynamicQueue = (req, res) => {
-  const query = `
-    SELECT transaction_id, user_id, service_id, status, created_at
-    FROM transactions
-    WHERE status IN ('waiting', 'in-progress')
-    ORDER BY created_at ASC
-  `;
-  db.all(query, [], (err, rows) => {
-    if (err) {
-      console.error('Error fetching active transactions:', err.message);
-      return res.status(500).json({ message: 'Failed to fetch active transactions.' });
-    }
-
-    const dynamicQueue = rows.map((transaction, index) => ({
-      ...transaction,
-      display_queue_number: index + 1, // Dynamically assign queue numbers starting from 1
-    }));
-
-    res.status(200).json(dynamicQueue);
-  });
-};
-
-// Fetch all transactions for queue display
+// Fetch all queue transactions
 exports.getAllQueueTransactions = (req, res) => {
   db.all(
     `SELECT * FROM transactions WHERE status IN ('waiting', 'in-progress') ORDER BY queue_number ASC`,
@@ -149,42 +128,73 @@ exports.getAllQueueTransactions = (req, res) => {
         console.error('Error fetching transactions:', err.message);
         return res.status(500).json({ message: 'Failed to fetch transactions.' });
       }
-      res.json(rows);
+      res.status(200).json(rows);
     }
   );
 };
 
-// Reorder queue numbers
-const reorderQueue = (callback) => {
-  const fetchQuery = `
-    SELECT transaction_id 
-    FROM transactions 
-    WHERE status IN ('waiting', 'in-progress') 
-    ORDER BY created_at ASC
-  `;
-  db.all(fetchQuery, [], (err, rows) => {
-    if (err) {
-      return callback(err);
+// Fetch user notifications
+exports.getUserNotifications = (req, res) => {
+  const { userId } = req.params;
+
+  db.all(
+    `SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC`,
+    [userId],
+    (err, rows) => {
+      if (err) {
+        console.error('Error fetching notifications:', err.message);
+        return res.status(500).json({ message: 'Failed to fetch notifications.' });
+      }
+      res.status(200).json(rows);
     }
-
-    const updateQueries = rows.map((row, index) => {
-      return new Promise((resolve, reject) => {
-        const updateQuery = `
-          UPDATE transactions 
-          SET queue_number = ? 
-          WHERE transaction_id = ?
-        `;
-        db.run(updateQuery, [index + 1, row.transaction_id], (updateErr) => {
-          if (updateErr) {
-            return reject(updateErr);
-          }
-          resolve();
-        });
-      });
-    });
-
-    Promise.all(updateQueries)
-      .then(() => callback(null))
-      .catch(callback);
-  });
+  );
 };
+
+// Update transaction status and send notifications
+exports.updateTransactionStatus = (req, res) => {
+  const { transaction_id, status } = req.body;
+
+  db.run(
+    `UPDATE transactions SET status = ? WHERE transaction_id = ?`,
+    [status, transaction_id],
+    function (err) {
+      if (err) {
+        console.error('Error updating transaction status:', err.message);
+        return res.status(500).json({ message: 'Failed to update transaction status.' });
+      }
+
+      db.get(
+        `SELECT * FROM transactions WHERE transaction_id = ?`,
+        [transaction_id],
+        (err, transaction) => {
+          if (err) {
+            console.error('Error fetching transaction:', err.message);
+            return res.status(500).json({ message: 'Failed to fetch transaction.' });
+          }
+
+          // Emit notification through WebSocket
+          const message = status === 'in-progress'
+            ? 'It is now your time to be served.'
+            : 'Your transaction is complete.';
+          io.to(transaction.user_id.toString()).emit('transactionUpdated', { message });
+
+          res.status(200).json({ message: 'Transaction status updated successfully.' });
+        }
+      );
+    }
+  );
+};
+
+
+// Helper function to send notifications and emit WebSocket events
+function sendNotificationAndEmit(userId, message) {
+  NotificationModel.createNotification(
+    { user_id: userId, message },
+    (err) => {
+      if (err) {
+        console.error('Error creating notification:', err.message);
+      }
+    }
+  );
+  io.to(userId.toString()).emit('queueUpdate', { message });
+}

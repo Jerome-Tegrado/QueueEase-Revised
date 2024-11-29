@@ -5,14 +5,99 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Notifications Management | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script>
+    async function sendNotification() {
+      try {
+        const userId = document.getElementById("userSelect").value;
+        const message = document.getElementById("notificationMessage").value;
+
+        if (!message.trim()) {
+          alert("Notification message cannot be empty.");
+          return;
+        }
+
+        const endpoint = userId === "all"
+          ? "http://localhost:5000/api/admin/system-notification"
+          : "http://localhost:5000/api/admin/notification";
+
+        const body = userId === "all"
+          ? { message }
+          : { user_id: userId, message };
+
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to send notification.");
+        }
+
+        const result = await response.json();
+        alert(result.message);
+
+        // Clear the inputs
+        document.getElementById("notificationMessage").value = "";
+        document.getElementById("userSelect").value = "all";
+      } catch (error) {
+        console.error("Error sending notification:", error);
+        alert("Error sending notification. Please try again.");
+      }
+    }
+
+    // Fetch and populate the user dropdown
+    async function loadUsers() {
+      try {
+        const response = await fetch("http://localhost:5000/api/admin/users");
+        if (!response.ok) {
+          throw new Error("Failed to fetch users.");
+        }
+
+        const users = await response.json();
+        const userSelect = document.getElementById("userSelect");
+
+        // Add "All Users" option
+        const allOption = document.createElement("option");
+        allOption.value = "all";
+        allOption.textContent = "All Users";
+        userSelect.appendChild(allOption);
+
+        // Populate users
+        users.forEach(user => {
+          const option = document.createElement("option");
+          option.value = user.id;
+          option.textContent = `${user.first_name} ${user.last_name} (${user.email})`;
+          userSelect.appendChild(option);
+        });
+      } catch (error) {
+        console.error("Error loading users:", error);
+        alert("Error loading users. Please refresh the page.");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", loadUsers);
+  </script>
 </head>
 <body>
   <header>
     <h1>Notifications Management</h1>
+    <nav>
+      <a href="admin-dashboard.html">Dashboard</a>
+      <a href="notifications.html">Notifications</a>
+      <a href="index.html">Logout</a>
+    </nav>
   </header>
   <main>
-    <textarea placeholder="Type your notification here"></textarea>
-    <button>Send Notification</button>
+    <h2>Send Notification</h2>
+    <label for="userSelect">Select User:</label>
+    <select id="userSelect" required>
+      <!-- Dynamically populated -->
+    </select>
+    <br><br>
+    <textarea id="notificationMessage" placeholder="Type your notification here" rows="5" required></textarea>
+    <br><br>
+    <button onclick="sendNotification()">Send Notification</button>
   </main>
 </body>
 </html>
