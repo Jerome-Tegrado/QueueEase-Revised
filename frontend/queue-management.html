@@ -28,7 +28,7 @@
             <td>${item.transaction_type}</td>
             <td>${item.status}</td>
             <td>
-
+              <button onclick="updateQueue(${item.queue_number}, 'prioritize')">In Progress</button>
               <button onclick="updateQueue(${item.queue_number}, 'complete')">Complete</button>
               <button onclick="updateQueue(${item.queue_number}, 'cancel')">Cancel</button>
             </td>
