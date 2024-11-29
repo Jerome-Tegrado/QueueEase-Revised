@@ -3,70 +3,62 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Notifications | QueueEase</title>
+  <title>User Notifications | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
-  <script src="/socket.io/socket.io.js"></script> <!-- Include Socket.io client library -->
+  <script src="/socket.io/socket.io.js"></script>
   <script>
-    // Initialize WebSocket connection
     const socket = io();
 
-    // Function to load user notifications
+    // Fetch and display notifications
     async function loadNotifications() {
       try {
-        const userId = localStorage.getItem("id"); // Use the corrected key for user ID
-        console.log('User ID:', userId); // Debug: Log user ID for debugging
-        if (!userId) {
-          throw new Error("User not logged in.");
-        }
+        const userId = localStorage.getItem('id');
+        if (!userId) throw new Error('User not logged in.');
 
-        // Fetch user notifications
-        const response = await fetch(`http://localhost:5000/api/users/notifications/${userId}`);
-        console.log('Response:', response); // Debug: Log the response to check if it's correct
-        if (!response.ok) {
-          throw new Error("Failed to fetch notifications.");
-        }
+        const response = await fetch(`/api/users/notifications/${userId}`);
+        if (!response.ok) throw new Error('Failed to fetch notifications.');
 
         const notifications = await response.json();
-        const notificationsContainer = document.getElementById("notificationsContainer");
+        const notificationsContainer = document.getElementById('notificationsContainer');
 
-        // If there are no notifications, show a message
         if (notifications.length > 0) {
-          notificationsContainer.innerHTML = notifications.map(notification => `
-            <div class="notification-card">
-              <p class="notification-message">${notification.message}</p>
-              <span class="notification-date">${new Date(notification.created_at).toLocaleString()}</span>
-            </div>
-          `).join('');
+          notificationsContainer.innerHTML = notifications
+            .map(
+              (notification) => `
+              <div class="notification-card">
+                <p>${notification.message}</p>
+                <span>${new Date(notification.created_at).toLocaleString()}</span>
+              </div>
+            `
+            )
+            .join('');
         } else {
-          notificationsContainer.innerHTML = "<p>No notifications found.</p>";
+          notificationsContainer.innerHTML = '<p>No notifications found.</p>';
         }
       } catch (error) {
-        console.error("Error loading notifications:", error);
-        document.getElementById("notificationsContainer").innerHTML =
-          "<p>Error loading notifications. Please try again later.</p>";
+        console.error('Error loading notifications:', error);
+        document.getElementById('notificationsContainer').innerHTML =
+          '<p>Error loading notifications. Please try again later.</p>';
       }
     }
 
-    // Real-time updates via WebSocket
-    // New Code: Updated notification handling
-socket.on('userQueueUpdated', (data) => {
-  const notificationsContainer = document.getElementById('notificationsContainer');
-  const notificationCard = `
-    <div class="notification-card">
-      <p>${data.message}</p>
-      <span>${new Date().toLocaleString()}</span>
-    </div>
-  `;
-  notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
-});
+    // Listen for real-time notifications
+    socket.on('transactionStatusUpdate', (data) => {
+      const notificationsContainer = document.getElementById('notificationsContainer');
+      const notificationCard = `
+        <div class="notification-card">
+          <p>${data.message}</p>
+          <span>${new Date().toLocaleString()}</span>
+        </div>
+      `;
+      notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
+      alert(`Notification: ${data.message}`);
+    });
 
-
-    // Load notifications on page load
-    document.addEventListener("DOMContentLoaded", () => {
+    document.addEventListener('DOMContentLoaded', () => {
       loadNotifications();
 
-      // Register the user for real-time updates
-      const userId = localStorage.getItem("id");
+      const userId = localStorage.getItem('id');
       if (userId) {
         socket.emit('registerUser', userId);
       }
@@ -78,17 +70,14 @@ socket.on('userQueueUpdated', (data) => {
     <h1>User Notifications</h1>
     <nav>
       <a href="user-dashboard.html">Dashboard</a>
-      <a href="user-queue.html">Queue</a>
-      <a href="user-notifications.html">Notifications <span id="notificationBadge" class="badge"></span></a>
+      <a href="user-notifications.html">Notifications</a>
       <a href="index.html">Logout</a>
     </nav>
   </header>
-
   <main>
-    <h2>Your Notifications</h2>
-    <div id="notificationsContainer" class="notifications-container">
-      <!-- Notifications will be dynamically populated here -->
-    </div>
+    <section id="notificationsContainer">
+      <!-- Notifications will load here dynamically -->
+    </section>
   </main>
 </body>
 </html>

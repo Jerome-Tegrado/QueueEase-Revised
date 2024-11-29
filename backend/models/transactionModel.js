@@ -62,39 +62,59 @@ const TransactionModel = {
 
     updateTransactionStatus: async (transaction_id, status, callback) => {
         try {
+            // Update the current transaction status
             const updateQuery = `UPDATE transactions SET status = ? WHERE transaction_id = ?`;
             await db.run(updateQuery, [status, transaction_id]);
-
+    
+            // Fetch the updated transaction details
             const transaction = await db.get(`SELECT * FROM transactions WHERE transaction_id = ?`, [transaction_id]);
+    
             if (!transaction) return callback(new Error('Transaction not found.'));
-
+    
+            // Notify the current user based on the status
             if (status === 'in-progress') {
+                // Notify the current user it is their turn
                 await db.run(`INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [
                     transaction.user_id,
                     'It is now your turn to be served.',
                 ]);
-
-                const nextTransaction = await db.get(`
-                    SELECT * FROM transactions 
-                    WHERE status = 'waiting' 
-                    ORDER BY queue_number ASC 
-                    LIMIT 1
-                `);
+    
+                // Notify the next user that they are next
+                const nextTransaction = await db.get(
+                    `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`
+                );
+    
                 if (nextTransaction) {
                     await db.run(`INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [
                         nextTransaction.user_id,
                         'You are next. Please be prepared.',
                     ]);
                 }
-            }
-
-            if (status === 'completed') {
+            } else if (status === 'completed') {
+                // Notify the current user their transaction is completed
                 await db.run(`INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [
                     transaction.user_id,
                     'Your transaction has been successfully completed.',
                 ]);
+    
+                // Move the next user to "in-progress"
+                const nextTransaction = await db.get(
+                    `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`
+                );
+    
+                if (nextTransaction) {
+                    await db.run(`UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`, [
+                        nextTransaction.transaction_id,
+                    ]);
+    
+                    // Notify the next user it's their turn
+                    await db.run(`INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [
+                        nextTransaction.user_id,
+                        'It is now your turn to be served.',
+                    ]);
+                }
             }
-
+    
             callback(null, { message: 'Transaction status updated and notifications sent successfully.' });
         } catch (error) {
             callback(error);

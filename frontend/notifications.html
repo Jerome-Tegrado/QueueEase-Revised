@@ -8,8 +8,8 @@
   <script>
     async function sendNotification() {
       try {
-        const userId = document.getElementById("userSelect").value;
-        const message = document.getElementById("notificationMessage").value.trim();
+        const userId = document.getElementById('userSelect').value;
+        const message = document.getElementById('notificationMessage').value.trim();
 
         if (!userId || userId === "select") {
           alert("Please select a user.");
@@ -23,8 +23,8 @@
 
         const endpoint =
           userId === "all"
-            ? "http://localhost:5000/api/admin/system-notification"
-            : "http://localhost:5000/api/admin/notification";
+            ? "/api/admin/system-notification"
+            : "/api/admin/notification";
 
         const body = userId === "all" ? { message } : { user_id: userId, message };
 
@@ -41,9 +41,8 @@
         const result = await response.json();
         alert(result.message);
 
-        // Clear the inputs
-        document.getElementById("notificationMessage").value = "";
-        document.getElementById("userSelect").value = "select";
+        document.getElementById('notificationMessage').value = "";
+        document.getElementById('userSelect').value = "select";
       } catch (error) {
         console.error("Error sending notification:", error);
         alert("Error sending notification. Please try again.");
@@ -52,7 +51,7 @@
 
     async function loadUsers() {
       try {
-        const response = await fetch("http://localhost:5000/api/admin/users");
+        const response = await fetch("/api/admin/users");
         if (!response.ok) {
           throw new Error("Failed to fetch users.");
         }
@@ -60,10 +59,6 @@
         const users = await response.json();
         const userSelect = document.getElementById("userSelect");
 
-        // Reset the dropdown
-        userSelect.innerHTML = "";
-
-        // Add "Select a User" placeholder option
         const placeholderOption = document.createElement("option");
         placeholderOption.value = "select";
         placeholderOption.textContent = "Select a User";
@@ -71,13 +66,11 @@
         placeholderOption.selected = true;
         userSelect.appendChild(placeholderOption);
 
-        // Add "All Users" option
         const allUsersOption = document.createElement("option");
         allUsersOption.value = "all";
         allUsersOption.textContent = "All Users";
         userSelect.appendChild(allUsersOption);
 
-        // Populate users
         users.forEach((user) => {
           const option = document.createElement("option");
           option.value = user.id;

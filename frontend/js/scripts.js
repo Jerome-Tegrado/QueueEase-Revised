@@ -78,6 +78,21 @@ socket.on('nextQueueNotification', (data) => {
   alert(`Notification: ${data.message}`);
 });
 
+// Listen for real-time notifications
+socket.on('transactionStatusUpdate', (data) => {
+  const notificationsContainer = document.getElementById('notificationsContainer');
+  const notificationCard = `
+      <div class="notification-card">
+          <p>${data.message}</p>
+          <span>${new Date().toLocaleString()}</span>
+      </div>
+  `;
+  if (notificationsContainer) {
+      notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
+  }
+  alert(`Notification: ${data.message}`);
+});
+
 // Fetch and dynamically update the queue display
 async function refreshQueueDisplay() {
   try {

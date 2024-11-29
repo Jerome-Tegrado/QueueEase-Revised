@@ -46,70 +46,39 @@ exports.updateQueueStatus = (req, res) => {
   let status;
 
   switch (action) {
-    case 'prioritize':
-      status = 'in-progress';
-      break;
-    case 'complete':
-      status = 'completed';
-      break;
-    case 'cancel':
-      status = 'canceled';
-      break;
-    default:
-      return res.status(400).json({ message: 'Invalid action.' });
+      case 'prioritize':
+          status = 'in-progress';
+          break;
+      case 'complete':
+          status = 'completed';
+          break;
+      case 'cancel':
+          status = 'canceled';
+          break;
+      default:
+          return res.status(400).json({ message: 'Invalid action.' });
   }
 
   db.run(
-    `UPDATE transactions SET status = ?, notified = 1 WHERE queue_number = ?`,
-    [status, queueNumber],
-    function (err) {
-      if (err) return res.status(500).json({ message: 'Failed to update queue.' });
+      `UPDATE transactions SET status = ? WHERE queue_number = ?`,
+      [status, queueNumber],
+      async function (err) {
+          if (err) return res.status(500).json({ message: 'Failed to update queue.' });
 
-      if (status === 'completed') {
-        // Notify user of completion
-        const currentTransactionQuery = `SELECT * FROM transactions WHERE queue_number = ? LIMIT 1`;
-        db.get(currentTransactionQuery, [queueNumber], (err, transaction) => {
-          if (err || !transaction) return res.status(500).json({ message: 'Failed to fetch current transaction.' });
-
-          db.run(
-            `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
-            [transaction.user_id, 'Your transaction has been successfully completed.']
-          );
-
-          // Fetch and update the next transaction
-          const nextTransactionQuery = `
-            SELECT * FROM transactions
-            WHERE status = 'waiting'
-            ORDER BY queue_number ASC
-            LIMIT 1
-          `;
-          db.get(nextTransactionQuery, [], (err, nextTransaction) => {
-            if (err) return res.status(500).json({ message: 'Failed to fetch the next transaction.' });
-
-            if (nextTransaction) {
-              db.run(
-                `UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`,
-                [nextTransaction.transaction_id],
-                (err) => {
-                  if (err) console.error('Failed to update next transaction:', err.message);
-                }
-              );
-
-              db.run(
-                `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
-                [nextTransaction.user_id, 'You are next. Please be prepared.']
-              );
-            }
-
-            res.status(200).json({ message: `Queue #${queueNumber} marked as ${status}.` });
-          });
-        });
-      } else {
-        res.status(200).json({ message: `Queue #${queueNumber} updated to ${status}.` });
+          try {
+              const transactionId = this.lastID; // Get transaction ID for current queue
+              await TransactionModel.updateTransactionStatus(transactionId, status, (err, result) => {
+                  if (err) return res.status(500).json({ error: err.message });
+                  res.status(200).json(result);
+              });
+          } catch (error) {
+              res.status(500).json({ error: 'Failed to update transaction notifications.' });
+          }
       }
-    }
   );
 };
+
+
 
 // Service Management
 exports.getAllServices = (req, res) => {
