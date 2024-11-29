@@ -11,7 +11,15 @@ exports.getAllUsers = (req, res) => {
 // Queue Management
 exports.getQueue = (req, res) => {
   db.all(
-    'SELECT * FROM transactions WHERE status NOT IN ("completed", "canceled") ORDER BY queue_number ASC',
+    `SELECT transactions.*, 
+            users.first_name, 
+            users.last_name, 
+            services.service_name 
+     FROM transactions
+     LEFT JOIN users ON transactions.user_id = users.id
+     LEFT JOIN services ON transactions.service_id = services.service_id
+     WHERE status NOT IN ("completed", "canceled")
+     ORDER BY queue_number ASC`,
     (err, rows) => {
       if (err) return res.status(500).json({ message: 'Failed to fetch queue.' });
       res.json(rows);
@@ -21,7 +29,11 @@ exports.getQueue = (req, res) => {
 
 exports.getCurrentServingQueue = (req, res) => {
   db.get(
-    'SELECT queue_number FROM transactions WHERE status = "waiting" ORDER BY queue_number ASC LIMIT 1',
+    `SELECT queue_number 
+     FROM transactions 
+     WHERE status = "in-progress" 
+     ORDER BY queue_number ASC 
+     LIMIT 1`,
     (err, row) => {
       if (err) return res.status(500).json({ message: 'Failed to fetch current queue.' });
       res.json(row || { queue_number: 'None' });
@@ -29,7 +41,6 @@ exports.getCurrentServingQueue = (req, res) => {
   );
 };
 
-// Updated Code Snippet for adminController.js
 exports.updateQueueStatus = (req, res) => {
   const { queueNumber, action } = req.params;
   let status;
@@ -49,36 +60,49 @@ exports.updateQueueStatus = (req, res) => {
   }
 
   db.run(
-    `UPDATE transactions SET status = ? WHERE queue_number = ?`,
+    `UPDATE transactions SET status = ?, notified = 1 WHERE queue_number = ?`,
     [status, queueNumber],
     function (err) {
       if (err) return res.status(500).json({ message: 'Failed to update queue.' });
 
       if (status === 'completed') {
-        const nextTransactionQuery = `
-          SELECT * FROM transactions
-          WHERE status = 'waiting'
-          ORDER BY queue_number ASC
-          LIMIT 1
-        `;
-        db.get(nextTransactionQuery, [], (err, nextTransaction) => {
-          if (err) return res.status(500).json({ message: 'Failed to fetch the next transaction.' });
+        // Notify user of completion
+        const currentTransactionQuery = `SELECT * FROM transactions WHERE queue_number = ? LIMIT 1`;
+        db.get(currentTransactionQuery, [queueNumber], (err, transaction) => {
+          if (err || !transaction) return res.status(500).json({ message: 'Failed to fetch current transaction.' });
 
-          if (nextTransaction) {
-            db.run(
-              `UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`,
-              [nextTransaction.transaction_id],
-              (err) => {
-                if (err) console.error('Failed to update next transaction:', err.message);
-              }
-            );
+          db.run(
+            `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+            [transaction.user_id, 'Your transaction has been successfully completed.']
+          );
 
-            db.run(
-              `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
-              [nextTransaction.user_id, 'You are next. Please be prepared.']
-            );
-          }
-          res.status(200).json({ message: `Queue #${queueNumber} marked as ${status}.` });
+          // Fetch and update the next transaction
+          const nextTransactionQuery = `
+            SELECT * FROM transactions
+            WHERE status = 'waiting'
+            ORDER BY queue_number ASC
+            LIMIT 1
+          `;
+          db.get(nextTransactionQuery, [], (err, nextTransaction) => {
+            if (err) return res.status(500).json({ message: 'Failed to fetch the next transaction.' });
+
+            if (nextTransaction) {
+              db.run(
+                `UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`,
+                [nextTransaction.transaction_id],
+                (err) => {
+                  if (err) console.error('Failed to update next transaction:', err.message);
+                }
+              );
+
+              db.run(
+                `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
+                [nextTransaction.user_id, 'You are next. Please be prepared.']
+              );
+            }
+
+            res.status(200).json({ message: `Queue #${queueNumber} marked as ${status}.` });
+          });
         });
       } else {
         res.status(200).json({ message: `Queue #${queueNumber} updated to ${status}.` });
@@ -86,8 +110,6 @@ exports.updateQueueStatus = (req, res) => {
     }
   );
 };
-
-
 
 // Service Management
 exports.getAllServices = (req, res) => {
@@ -138,16 +160,13 @@ exports.addTransaction = (req, res) => {
     return res.status(400).json({ error: 'User ID and Service ID are required.' });
   }
 
-  // Check if the specific user has an active transaction
   const checkTransactionQuery = `
     SELECT * FROM transactions 
     WHERE user_id = ? AND status IN ('waiting', 'in-progress')
     LIMIT 1
   `;
   db.get(checkTransactionQuery, [user_id], (err, activeTransaction) => {
-    if (err) {
-      return res.status(500).json({ error: 'Database error while checking active transactions.' });
-    }
+    if (err) return res.status(500).json({ error: 'Database error while checking active transactions.' });
 
     if (activeTransaction) {
       return res.status(400).json({
@@ -155,15 +174,12 @@ exports.addTransaction = (req, res) => {
       });
     }
 
-    // Proceed to create a new transaction
     const insertTransactionQuery = `
       INSERT INTO transactions (user_id, service_id, queue_number, status)
       VALUES (?, ?, (SELECT IFNULL(MAX(queue_number), 0) + 1 FROM transactions), 'waiting')
     `;
     db.run(insertTransactionQuery, [user_id, service_id], function (err) {
-      if (err) {
-        return res.status(500).json({ error: 'Failed to create transaction.' });
-      }
+      if (err) return res.status(500).json({ error: 'Failed to create transaction.' });
 
       const getQueueNumberQuery = `
         SELECT queue_number, 
@@ -172,9 +188,7 @@ exports.addTransaction = (req, res) => {
         WHERE transaction_id = ?
       `;
       db.get(getQueueNumberQuery, [service_id, this.lastID], (err, transaction) => {
-        if (err) {
-          return res.status(500).json({ error: 'Failed to fetch transaction details.' });
-        }
+        if (err) return res.status(500).json({ error: 'Failed to fetch transaction details.' });
 
         res.status(201).json({
           message: 'Transaction created successfully!',
@@ -195,19 +209,6 @@ exports.sendNotification = (req, res) => {
     (err) => {
       if (err) return res.status(500).json({ message: 'Failed to send notification.' });
       res.json({ message: 'Notification sent successfully.' });
-    }
-  );
-};
-
-// System-Wide Notifications
-exports.sendSystemNotification = (req, res) => {
-  const { message } = req.body;
-  db.run(
-    `INSERT INTO notifications (user_id, message) VALUES (NULL, ?)`,
-    [message],
-    (err) => {
-      if (err) return res.status(500).json({ message: 'Failed to send system notification.' });
-      res.json({ message: 'System notification sent successfully.' });
     }
   );
 };

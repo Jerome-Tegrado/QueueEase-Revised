@@ -82,128 +82,57 @@ router.get('/queue', (req, res) => {
 });
 
 router.get('/queue/completed', (req, res) => {
-  const query = `
-    SELECT 
-      t.queue_number,
-      t.user_id,
-      s.service_name AS transaction_type,
-      t.status,
-      t.created_at
-    FROM transactions t
-    LEFT JOIN services s ON t.service_id = s.service_id
-    WHERE t.status = 'completed'
-    ORDER BY t.created_at DESC
-  `;
-  db.all(query, [], (err, rows) => {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to fetch completed transactions.' });
+  db.all(
+    `SELECT t.queue_number, t.user_id, s.service_name AS transaction_type, t.status, t.created_at
+     FROM transactions t
+     LEFT JOIN services s ON t.service_id = s.service_id
+     WHERE t.status = 'completed'
+     ORDER BY t.created_at DESC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: 'Failed to fetch completed transactions.' });
+      res.json(rows);
     }
-    res.json(rows);
-  });
+  );
 });
+
 
 
 router.put('/queue/:queueNumber/:action', (req, res) => {
   const { queueNumber, action } = req.params;
   let status;
 
-  // Determine the status based on the action
   switch (action) {
-    case 'prioritize':
-      status = 'in-progress';
-      break;
-    case 'complete':
-      status = 'completed';
-      break;
-    case 'cancel':
-      status = 'canceled';
-      break;
-    default:
-      return res.status(400).json({ error: 'Invalid action.' });
+      case 'prioritize':
+          status = 'in-progress';
+          break;
+      case 'complete':
+          status = 'completed';
+          break;
+      case 'cancel':
+          status = 'canceled';
+          break;
+      default:
+          return res.status(400).json({ error: 'Invalid action.' });
   }
 
-  // Step 1: Update the specific queue transaction status
-  const updateQuery = `
-    UPDATE transactions 
-    SET status = ? 
-    WHERE queue_number = ? 
-      AND status IN ('waiting', 'in-progress')
-  `;
+  const updateQuery = `UPDATE transactions SET status = ? WHERE queue_number = ? AND status IN ('waiting', 'in-progress')`;
   db.run(updateQuery, [status, queueNumber], function (err) {
-    if (err) {
-      return res.status(500).json({ error: 'Failed to update queue status.' });
-    }
+      if (err) return res.status(500).json({ error: 'Failed to update queue status.' });
 
-    // Step 2: Handle queue number reassignment for remaining transactions
-    if (status === 'completed' || status === 'canceled') {
-      const reassignQueueQuery = `
-        UPDATE transactions
-        SET queue_number = queue_number - 1
-        WHERE queue_number > ?
-          AND status IN ('waiting', 'in-progress')
-      `;
-      db.run(reassignQueueQuery, [queueNumber], function (err) {
-        if (err) {
-          return res.status(500).json({ error: 'Failed to reassign queue numbers.' });
-        }
-      });
-    }
-
-    // Step 3: Handle the next transaction if the current action is 'complete'
-    if (status === 'completed') {
-      const nextTransactionQuery = `
-        SELECT * FROM transactions
-        WHERE status = 'waiting'
-        ORDER BY queue_number ASC
-        LIMIT 1
-      `;
-      db.get(nextTransactionQuery, [], (err, nextTransaction) => {
-        if (err) return res.status(500).json({ error: 'Failed to fetch the next transaction.' });
-
-        if (nextTransaction) {
-          // Update the next user's status to 'in-progress'
-          const updateNextStatusQuery = `
-            UPDATE transactions 
-            SET status = 'in-progress' 
-            WHERE transaction_id = ?
-          `;
-          db.run(updateNextStatusQuery, [nextTransaction.transaction_id], (err) => {
-            if (err) {
-              console.error('Failed to update next transaction:', err.message);
-            }
-          });
-
-          // Notify the next user in the queue
-          const nextMessage = 'You are next. Please be prepared.';
-          db.run(
-            `INSERT INTO notifications (user_id, message) VALUES (?, ?)`,
-            [nextTransaction.user_id, nextMessage],
-            (err) => {
-              if (err) {
-                console.error('Failed to send notification:', err.message);
+      if (status === 'in-progress') {
+          // Notify the next user immediately
+          const nextTransactionQuery = `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`;
+          db.get(nextTransactionQuery, [], (err, nextTransaction) => {
+              if (nextTransaction) {
+                  db.run(`INSERT INTO notifications (user_id, message) VALUES (?, ?)`, [
+                      nextTransaction.user_id,
+                      'You are next. Please be prepared.',
+                  ]);
               }
-            }
-          );
-        }
-      });
-    }
-
-    // Step 4: Send a system-wide notification if applicable
-    if (status === 'completed' || status === 'canceled') {
-      const systemMessage = `Queue #${queueNumber} has been ${status}.`;
-      db.run(
-        `INSERT INTO notifications (user_id, message) VALUES (NULL, ?)`,
-        [systemMessage],
-        (err) => {
-          if (err) {
-            console.error('Failed to send system notification:', err.message);
-          }
-        }
-      );
-    }
-
-    // Respond with a success message
-    res.status(200).json({ message: `Queue #${queueNumber} ${action}d successfully.` });
+          });
+      }
+      res.status(200).json({ message: `Queue #${queueNumber} updated to ${status}.` });
   });
 });
 
@@ -328,12 +257,11 @@ router.put('/transactions/:transactionId/status', (req, res) => {
   const { status } = req.body;
 
   TransactionModel.updateTransactionStatus(transactionId, status, (err, result) => {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
+    if (err) return res.status(500).json({ error: err.message });
     res.status(200).json(result);
   });
 });
+
 
 // GET all transactions for admin
 router.get('/transactions', (req, res) => {
@@ -348,19 +276,19 @@ router.get('/transactions', (req, res) => {
 // Notifications
 router.post('/notification', sendNotification); // User-specific notifications
 router.get('/notifications', (req, res) => {
-  const query = `
-      SELECT * 
-      FROM notifications
-      ORDER BY created_at DESC
-  `;
-  db.all(query, [], (err, rows) => {
-      if (err) {
-          return res.status(500).json({ error: 'Failed to fetch notifications.' });
-      }
+  db.all(
+    `SELECT * 
+     FROM notifications 
+     ORDER BY created_at DESC`,
+    [],
+    (err, rows) => {
+      if (err) return res.status(500).json({ message: 'Failed to fetch notifications.' });
       res.json(rows);
-  });
+    }
+  );
 });
 
-router.post('/system-notification', sendSystemNotification); // System-wide notifications
+
+
 
 module.exports = router;

@@ -41,6 +41,7 @@ const initializeDB = () => {
         service_id INTEGER, -- Foreign key to services
         queue_number INTEGER,
         status TEXT DEFAULT 'waiting',
+        notified BOOLEAN DEFAULT 0, -- Track if the user has been notified
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
         FOREIGN KEY (service_id) REFERENCES services(service_id) ON DELETE SET NULL ON UPDATE CASCADE
@@ -54,7 +55,7 @@ const initializeDB = () => {
         user_id INTEGER, -- Foreign key to users
         message TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (user_id) REFERENCES users(id)
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
       )
     `);
 

@@ -21,7 +21,7 @@ const NotificationModel = {
         db.all(query, [user_id], callback);
     },
 
-    // Optional: Update notification status (e.g., mark as read/unread)
+    // Update notification status (e.g., mark as read/unread)
     updateNotificationStatus: (notification_id, status, callback) => {
         const query = `
             UPDATE notifications 
@@ -31,7 +31,7 @@ const NotificationModel = {
         db.run(query, [status, notification_id], callback);
     },
 
-    // Optional: Delete a specific notification by ID
+    // Delete a specific notification by ID
     deleteNotification: (notification_id, callback) => {
         const query = `
             DELETE FROM notifications 
@@ -40,7 +40,7 @@ const NotificationModel = {
         db.run(query, [notification_id], callback);
     },
 
-    // Optional: Delete all notifications for a user (e.g., when a user deletes their account)
+    // Delete all notifications for a user (e.g., when a user deletes their account)
     deleteNotificationsByUserId: (user_id, callback) => {
         const query = `
             DELETE FROM notifications 
@@ -65,6 +65,26 @@ const NotificationModel = {
             VALUES (NULL, ?)
         `;
         db.run(query, [message], callback);
+    },
+
+    // Notify a user when their transaction is completed
+    notifyTransactionCompleted: (user_id, callback) => {
+        const message = 'Your transaction has been successfully completed.';
+        const query = `
+            INSERT INTO notifications (user_id, message)
+            VALUES (?, ?)
+        `;
+        db.run(query, [user_id, message], callback);
+    },
+
+    // Notify the next user in the queue
+    notifyNextUser: (user_id, callback) => {
+        const message = 'It is now your time to be served.';
+        const query = `
+            INSERT INTO notifications (user_id, message)
+            VALUES (?, ?)
+        `;
+        db.run(query, [user_id, message], callback);
     }
 };
 

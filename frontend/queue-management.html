@@ -7,9 +7,9 @@
   <link rel="stylesheet" href="css/styles.css">
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io(); // Initialize WebSocket connection
+    const socket = io();
 
-    // Load live queue data
+    // Fetch and populate the live queue table
     async function loadQueue() {
       try {
         const response = await fetch('/api/admin/queue');
@@ -37,17 +37,18 @@
         });
       } catch (error) {
         console.error('Error loading queue:', error);
+        alert('Failed to load live queue. Please try again later.');
       }
     }
 
-    // Load completed transactions
+    // Fetch and populate the completed transactions table
     async function loadCompletedTransactions() {
       try {
-        const response = await fetch('/api/admin/completed-transactions');
+        const response = await fetch('/api/admin/queue/completed');
         if (!response.ok) throw new Error('Failed to fetch completed transactions.');
 
-        const completedTransactions = await response.json();
         const completedTable = document.getElementById('completedTable');
+        const completedTransactions = await response.json();
         completedTable.innerHTML = ''; // Clear existing rows
 
         completedTransactions.forEach(item => {
@@ -62,6 +63,7 @@
         });
       } catch (error) {
         console.error('Error loading completed transactions:', error);
+        alert('Failed to load completed transactions. Please try again later.');
       }
     }
 
@@ -69,34 +71,34 @@
     async function updateQueue(queueNumber, action) {
       try {
         const response = await fetch(`/api/admin/queue/${queueNumber}/${action}`, { method: 'PUT' });
-        if (response.ok) {
-          alert(`Queue #${queueNumber} ${action}d successfully.`);
-          socket.emit('queueUpdated'); // Notify all clients to refresh queue
-        } else {
+        if (!response.ok) {
           const errorData = await response.json();
-          alert(`Failed to update queue: ${errorData.error}`);
+          throw new Error(errorData.error || 'Failed to update queue.');
         }
+
+        alert(`Queue #${queueNumber} ${action}d successfully.`);
+        socket.emit('queueUpdated');
       } catch (error) {
         console.error('Error updating queue:', error);
+        alert('Error updating queue. Please try again.');
       }
     }
 
-    // WebSocket event listeners for real-time updates
+    // Real-time updates for queue and transactions
     socket.on('queueUpdated', () => {
-      console.log('Queue update received. Reloading queue...');
+      console.log('Queue update received.');
       loadQueue();
       loadCompletedTransactions();
     });
 
     socket.on('transactionUpdated', (transaction) => {
-      console.log('Transaction update received:', transaction);
       const row = document.getElementById(`queueRow-${transaction.queue_number}`);
       if (row) {
         row.querySelector('td:nth-child(4)').textContent = transaction.status;
       }
     });
 
-    // Initialize on page load
+    // Initialize the page on load
     document.addEventListener('DOMContentLoaded', () => {
       loadQueue();
       loadCompletedTransactions();
@@ -132,6 +134,8 @@
         </tbody>
       </table>
     </section>
+
+    <hr />
 
     <section>
       <h2>Completed Transactions</h2>
