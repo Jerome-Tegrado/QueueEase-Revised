@@ -38,7 +38,7 @@
           <td>${item.queue_number}</td>
           <td>${item.user_id}</td>
           <td>${item.transaction_type}</td>
-          <td>${item.status}</td>
+          <td>${item.status || 'waiting'}</td>
           <td>
             <button onclick="updateQueue(${item.queue_number}, 'prioritize')">In Progress</button>
             <button onclick="updateQueue(${item.queue_number}, 'complete')">Complete</button>
@@ -74,8 +74,23 @@
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to update queue.');
         }
-        alert(`Queue #${queueNumber} ${action}d successfully.`);
-        socket.emit('queueUpdated'); // Notify the server of updates
+
+        if (action === 'prioritize') {
+          alert(`Queue #${queueNumber} is now in progress.`);
+          
+          // Notify the next user in line
+          const nextUserResponse = await fetch(`/api/admin/queue/${queueNumber}/notify-next`, { method: 'POST' });
+          if (!nextUserResponse.ok) {
+            console.error('Failed to notify the next user.');
+          }
+        } else if (action === 'complete') {
+          alert(`Queue #${queueNumber} has been completed.`);
+        } else if (action === 'cancel') {
+          alert(`Queue #${queueNumber} has been canceled.`);
+        }
+
+        // Notify server to refresh data
+        socket.emit('queueUpdated');
       } catch (error) {
         console.error('Error updating queue:', error);
         alert('Error updating queue. Please try again.');
@@ -94,19 +109,8 @@
       }
     });
 
-    // Handle real-time completed transactions updates
-    socket.on('completedUpdated', async () => {
-      try {
-        const response = await fetch('/api/admin/queue/completed');
-        const completedTransactions = await response.json();
-        populateCompletedTable(completedTransactions);
-      } catch (error) {
-        console.error('Error updating completed transactions:', error);
-      }
-    });
-
-    // Initialize the page on load
-    document.addEventListener('DOMContentLoaded', async () => {
+    // Auto-refresh queue and completed transactions every second
+    setInterval(async () => {
       try {
         const queueResponse = await fetch('/api/admin/queue');
         const queue = await queueResponse.json();
@@ -117,9 +121,10 @@
         const completedTransactions = await completedResponse.json();
         populateCompletedTable(completedTransactions);
       } catch (error) {
-        console.error('Error initializing data:', error);
+        console.error('Error during auto-refresh:', error);
       }
-    });
+    }, 1000);
+
   </script>
 </head>
 <body>

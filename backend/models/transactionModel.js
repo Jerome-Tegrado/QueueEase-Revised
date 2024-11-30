@@ -54,10 +54,10 @@ const TransactionModel = {
       UPDATE transactions 
       SET status = ? 
       WHERE transaction_id = ?`;
-
+  
     db.run(updateQuery, [status, transaction_id], function (err) {
       if (err) return callback(err);
-
+  
       // Fetch the updated transaction
       db.get(
         `SELECT * FROM transactions WHERE transaction_id = ?`,
@@ -65,31 +65,59 @@ const TransactionModel = {
         (err, transaction) => {
           if (err || !transaction)
             return callback(err || new Error('Transaction not found.'));
-
+  
           // Notifications logic based on status
+          let message;
           switch (status) {
             case 'in-progress':
-              notifyUser(transaction.user_id, `Your transaction #${transaction.queue_number} is now in progress.`);
-              notifyNextUserInQueue(1, 'You are next in line. Please be ready.');
-              break;
-
-            case 'completed':
-              notifyUser(transaction.user_id, `Transaction #${transaction.queue_number} has been completed.`);
-              moveNextTransactionToInProgress(() => {
-                notifyNextUserInQueue(1, 'You are next in line. Please be ready.');
-                notifyNextUserInQueue(2, 'Prepare yourself, you are 2nd in line.');
+              message = `Your transaction #${transaction.queue_number} is now in progress.`;
+              notifyUser(transaction.user_id, message);
+  
+              // Notify the next user in line
+              const nextUserQuery = `
+                SELECT queue_number, user_id
+                FROM transactions
+                WHERE status = 'waiting' AND queue_number > ?
+                ORDER BY queue_number ASC
+                LIMIT 1
+              `;
+              db.get(nextUserQuery, [transaction.queue_number], (nextErr, nextTransaction) => {
+                if (nextErr) {
+                  console.error('Failed to fetch the next user:', nextErr.message);
+                  return;
+                }
+  
+                if (nextTransaction) {
+                  notifyUser(nextTransaction.user_id, 'You are next in line. Please be prepared.');
+                } else {
+                  console.log('No next user to notify.');
+                }
               });
               break;
-
-            default:
+  
+            case 'completed':
+              message = `Transaction #${transaction.queue_number} has been completed.`;
+              notifyUser(transaction.user_id, message);
               break;
+  
+            case 'canceled':
+              message = `Transaction #${transaction.queue_number} has been canceled.`;
+              notifyUser(transaction.user_id, message);
+              break;
+  
+            default:
+              console.log('Invalid transaction status. No notification sent.');
           }
-
-          callback(null, { message: 'Transaction status updated and notifications sent successfully.' });
+  
+          callback(null, {
+            message: `Transaction #${transaction.queue_number} updated to status: ${status}`,
+          });
         }
       );
     });
   },
+  
+  
 
   // Get the current queue for all users
   getQueueForAllUsers: (callback) => {
@@ -142,40 +170,5 @@ function notifyNextUserInQueue(offset, message) {
   });
 }
 
-// Helper function to move the next transaction to 'in-progress'
-function moveNextTransactionToInProgress(callback) {
-  const query = `
-    SELECT * FROM transactions 
-    WHERE status = 'waiting' 
-    ORDER BY queue_number ASC 
-    LIMIT 1`;
-
-  db.get(query, [], (err, nextTransaction) => {
-    if (err) {
-      console.error('Failed to fetch next transaction:', err.message);
-      return callback();
-    }
-
-    if (nextTransaction) {
-      db.run(
-        `UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`,
-        [nextTransaction.transaction_id],
-        (updateErr) => {
-          if (updateErr) {
-            console.error('Failed to update next transaction:', updateErr.message);
-          } else {
-            notifyUser(
-              nextTransaction.user_id,
-              `Your transaction #${nextTransaction.queue_number} is now in progress.`
-            );
-          }
-          callback();
-        }
-      );
-    } else {
-      callback();
-    }
-  });
-}
 
 module.exports = TransactionModel;

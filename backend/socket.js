@@ -24,6 +24,12 @@ function initSocket(server) {
       console.log(`User registered with ID: ${userId} and added to room.`);
     });
 
+    // Listen for queue-specific events (optional)
+    socket.on('queueAction', (action) => {
+      console.log(`Action received from ${socket.user_id}: ${action}`);
+      // Perform server-side handling if needed
+    });
+
     // Handle user disconnects
     socket.on('disconnect', () => {
       console.log(`A user disconnected: ${socket.id}`);
@@ -133,30 +139,16 @@ function notifySystemMessage(message) {
 }
 
 /**
- * Notify all clients about queue updates
- */
-function notifyQueueUpdate() {
-  if (io) {
-    io.emit('queueUpdated');
-    console.log('Queue updated notification sent.');
-  } else {
-    console.error('WebSocket server not initialized.');
-  }
-}
-
-/**
  * Notify all clients about completed transactions updates
  */
 function notifyCompletedUpdate() {
   if (io) {
-    io.emit('completedUpdated');
+    io.emit('completedUpdated', { message: 'Completed transactions updated.' });
     console.log('Completed transactions update notification sent.');
   } else {
     console.error('WebSocket server not initialized.');
   }
 }
-
-
 
 module.exports = {
   initSocket,
