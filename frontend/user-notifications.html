@@ -43,17 +43,24 @@
     }
 
     // Listen for real-time notifications
-    socket.on('transactionStatusUpdate', (data) => {
+    socket.on('transactionCompleted', (data) => handleRealTimeNotification(`Transaction #${data.transactionNumber} has been completed.`));
+    socket.on('transactionInProgress', (data) => handleRealTimeNotification(`Your transaction #${data.transactionNumber} is now in progress.`));
+    socket.on('nextInLineNotification', (data) => handleRealTimeNotification('You are next in line. Please be ready.'));
+    socket.on('secondInLineNotification', (data) => handleRealTimeNotification('You are second in line. Please prepare.'));
+    socket.on('systemNotification', (data) => handleRealTimeNotification(data.message));
+
+    // Handle real-time notification display
+    function handleRealTimeNotification(message) {
       const notificationsContainer = document.getElementById('notificationsContainer');
       const notificationCard = `
         <div class="notification-card">
-          <p>${data.message}</p>
+          <p>${message}</p>
           <span>${new Date().toLocaleString()}</span>
         </div>
       `;
       notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
-      alert(`Notification: ${data.message}`);
-    });
+      alert(`Notification: ${message}`);
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       loadNotifications();

@@ -9,65 +9,64 @@
   <script>
     const socket = io();
 
-    // Fetch and populate the live queue table
-    async function loadQueue() {
-      try {
-        const response = await fetch('/api/admin/queue');
-        if (!response.ok) throw new Error('Failed to fetch queue data.');
+    // Function to dynamically update queue statistics
+    function updateQueueStats(queue) {
+      const queueStats = document.getElementById('queueStats');
+      if (queue.length > 0) {
+        const firstQueue = queue[0];
+        const nextQueue = queue.length > 1 ? queue[1] : null;
 
-        const queue = await response.json();
-        const queueTable = document.getElementById('queueTable');
-        queueTable.innerHTML = ''; // Clear existing rows
-
-        queue.forEach(item => {
-          const row = document.createElement('tr');
-          row.id = `queueRow-${item.queue_number}`;
-          row.innerHTML = `
-            <td>${item.queue_number}</td>
-            <td>${item.user_id}</td>
-            <td>${item.transaction_type}</td>
-            <td>${item.status}</td>
-            <td>
-              <button onclick="updateQueue(${item.queue_number}, 'prioritize')">In Progress</button>
-              <button onclick="updateQueue(${item.queue_number}, 'complete')">Complete</button>
-              <button onclick="updateQueue(${item.queue_number}, 'cancel')">Cancel</button>
-            </td>
-          `;
-          queueTable.appendChild(row);
-        });
-      } catch (error) {
-        console.error('Error loading queue:', error);
-        alert('Failed to load live queue. Please try again later.');
+        queueStats.innerHTML = `
+          <p><strong>Currently Serving:</strong> Queue #${firstQueue.queue_number}</p>
+          <p><strong>Next in Line:</strong> ${nextQueue ? `Queue #${nextQueue.queue_number}` : 'None'}</p>
+          <p><strong>Users in Line:</strong> ${queue.length}</p>
+        `;
+      } else {
+        queueStats.innerHTML = '<p>No users in the queue.</p>';
       }
     }
 
-    // Fetch and populate the completed transactions table
-    async function loadCompletedTransactions() {
-      try {
-        const response = await fetch('/api/admin/queue/completed');
-        if (!response.ok) throw new Error('Failed to fetch completed transactions.');
+    // Function to populate the live queue table dynamically
+    function populateQueueTable(queue) {
+      const queueTable = document.getElementById('queueTable');
+      queueTable.innerHTML = ''; // Clear existing rows
 
-        const completedTable = document.getElementById('completedTable');
-        const completedTransactions = await response.json();
-        completedTable.innerHTML = ''; // Clear existing rows
-
-        completedTransactions.forEach(item => {
-          const row = document.createElement('tr');
-          row.innerHTML = `
-            <td>${item.queue_number}</td>
-            <td>${item.user_id}</td>
-            <td>${item.transaction_type}</td>
-            <td>${item.status}</td>
-          `;
-          completedTable.appendChild(row);
-        });
-      } catch (error) {
-        console.error('Error loading completed transactions:', error);
-        alert('Failed to load completed transactions. Please try again later.');
-      }
+      queue.forEach(item => {
+        const row = document.createElement('tr');
+        row.id = `queueRow-${item.queue_number}`;
+        row.innerHTML = `
+          <td>${item.queue_number}</td>
+          <td>${item.user_id}</td>
+          <td>${item.transaction_type}</td>
+          <td>${item.status}</td>
+          <td>
+            <button onclick="updateQueue(${item.queue_number}, 'prioritize')">In Progress</button>
+            <button onclick="updateQueue(${item.queue_number}, 'complete')">Complete</button>
+            <button onclick="updateQueue(${item.queue_number}, 'cancel')">Cancel</button>
+          </td>
+        `;
+        queueTable.appendChild(row);
+      });
     }
 
-    // Update queue status
+    // Function to populate the completed transactions table dynamically
+    function populateCompletedTable(transactions) {
+      const completedTable = document.getElementById('completedTable');
+      completedTable.innerHTML = ''; // Clear existing rows
+
+      transactions.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.queue_number}</td>
+          <td>${item.user_id}</td>
+          <td>${item.transaction_type}</td>
+          <td>${item.status}</td>
+        `;
+        completedTable.appendChild(row);
+      });
+    }
+
+    // Update queue status via fetch API
     async function updateQueue(queueNumber, action) {
       try {
         const response = await fetch(`/api/admin/queue/${queueNumber}/${action}`, { method: 'PUT' });
@@ -75,33 +74,51 @@
           const errorData = await response.json();
           throw new Error(errorData.error || 'Failed to update queue.');
         }
-
         alert(`Queue #${queueNumber} ${action}d successfully.`);
-        socket.emit('queueUpdated');
+        socket.emit('queueUpdated'); // Notify the server of updates
       } catch (error) {
         console.error('Error updating queue:', error);
         alert('Error updating queue. Please try again.');
       }
     }
 
-    // Real-time updates for queue and transactions
-    socket.on('queueUpdated', () => {
-      console.log('Queue update received.');
-      loadQueue();
-      loadCompletedTransactions();
+    // Handle real-time queue updates
+    socket.on('queueUpdated', async () => {
+      try {
+        const response = await fetch('/api/admin/queue');
+        const queue = await response.json();
+        populateQueueTable(queue);
+        updateQueueStats(queue);
+      } catch (error) {
+        console.error('Error updating live queue:', error);
+      }
     });
 
-    socket.on('transactionUpdated', (transaction) => {
-      const row = document.getElementById(`queueRow-${transaction.queue_number}`);
-      if (row) {
-        row.querySelector('td:nth-child(4)').textContent = transaction.status;
+    // Handle real-time completed transactions updates
+    socket.on('completedUpdated', async () => {
+      try {
+        const response = await fetch('/api/admin/queue/completed');
+        const completedTransactions = await response.json();
+        populateCompletedTable(completedTransactions);
+      } catch (error) {
+        console.error('Error updating completed transactions:', error);
       }
     });
 
     // Initialize the page on load
-    document.addEventListener('DOMContentLoaded', () => {
-      loadQueue();
-      loadCompletedTransactions();
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const queueResponse = await fetch('/api/admin/queue');
+        const queue = await queueResponse.json();
+        populateQueueTable(queue);
+        updateQueueStats(queue);
+
+        const completedResponse = await fetch('/api/admin/queue/completed');
+        const completedTransactions = await completedResponse.json();
+        populateCompletedTable(completedTransactions);
+      } catch (error) {
+        console.error('Error initializing data:', error);
+      }
     });
   </script>
 </head>
@@ -117,6 +134,10 @@
   </header>
 
   <main>
+    <section id="queueStats">
+      <!-- Queue statistics will load here dynamically -->
+    </section>
+
     <section>
       <h2>Live Queue</h2>
       <table border="1">

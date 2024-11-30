@@ -35,22 +35,15 @@ document.getElementById('loginForm')?.addEventListener('submit', async (event) =
   }
 });
 
-// Listen for user-specific queue updates
-socket.on('userQueueUpdated', (data) => {
-  displayNotification(data.message);
-});
-
-// Listen for next queue notifications
-socket.on('nextQueueNotification', (data) => {
-  displayNotification(data.message);
-  alert(`Notification: ${data.message}`);
-});
-
-// Listen for real-time transaction updates (in-progress and completed)
-socket.on('transactionStatusUpdate', (data) => {
-  displayNotification(data.message);
-  alert(`Notification: ${data.message}`);
-});
+// WebSocket event handlers
+socket.on('userQueueUpdated', (data) => displayNotification(data.message));
+socket.on('nextQueueNotification', (data) => displayNotification(data.message));
+socket.on('transactionStatusUpdate', (data) => displayNotification(data.message));
+socket.on('queueUpdated', refreshQueueDisplay);
+socket.on('transactionCompleted', (data) => displayNotification(`Transaction #${data.transactionNumber} has been completed.`));
+socket.on('transactionInProgress', (data) => displayNotification(`Your transaction #${data.transactionNumber} is now in progress.`));
+socket.on('nextInLineNotification', (data) => displayNotification(`You are next in line. Please be ready.`));
+socket.on('secondInLineNotification', (data) => displayNotification(`You are second in line. Please prepare.`));
 
 /**
  * Display a notification in the UI
@@ -71,16 +64,19 @@ function displayNotification(message) {
   }
 }
 
-// Fetch and dynamically update the queue display
+/**
+ * Fetch and dynamically update the queue display
+ */
 async function refreshQueueDisplay() {
   try {
     const response = await fetch('/api/users/queue');
-    const queueData = await response.json();
+    if (!response.ok) throw new Error('Failed to fetch queue.');
 
+    const queueData = await response.json();
     const queueContainer = document.getElementById('queueContainer');
+
     if (queueContainer) {
       queueContainer.innerHTML = ''; // Clear existing content
-
       queueData.forEach((queueItem) => {
         const queueElement = document.createElement('div');
         queueElement.id = `queueItem-${queueItem.queue_number}`;
@@ -95,7 +91,10 @@ async function refreshQueueDisplay() {
   }
 }
 
-// Fetch and display user notifications
+/**
+ * Fetch and display user notifications
+ * @param {Number} limit - Number of notifications to fetch
+ */
 async function loadNotifications(limit = 5) {
   try {
     const userId = localStorage.getItem('id');
@@ -132,7 +131,9 @@ async function loadNotifications(limit = 5) {
   }
 }
 
-// Load all notifications on user request
+/**
+ * Load all notifications on user request
+ */
 async function loadAllNotifications() {
   await loadNotifications(1000);
 }

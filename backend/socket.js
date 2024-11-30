@@ -32,15 +32,39 @@ function initSocket(server) {
 }
 
 /**
- * Notify all clients about a queue update
+ * Emit an event to a specific room (user-specific notification)
+ * @param {String} room - The room (user ID) to emit the event to
+ * @param {String} event - The event name
+ * @param {Object} payload - The event payload
  */
-function notifyQueueUpdate() {
+function emitToRoom(room, event, payload) {
   if (io) {
-    io.emit('queueUpdated'); // Notify all clients
-    console.log('Queue updated notification sent.');
+    io.to(room.toString()).emit(event, payload);
+    console.log(`Event "${event}" emitted to room: ${room}`);
   } else {
     console.error('WebSocket server not initialized.');
   }
+}
+
+/**
+ * Emit a system-wide event (broadcast)
+ * @param {String} event - The event name
+ * @param {Object} payload - The event payload
+ */
+function emitToAll(event, payload) {
+  if (io) {
+    io.emit(event, payload);
+    console.log(`System-wide event "${event}" broadcasted.`);
+  } else {
+    console.error('WebSocket server not initialized.');
+  }
+}
+
+/**
+ * Notify all clients about a queue update
+ */
+function notifyQueueUpdate() {
+  emitToAll('queueUpdated', { message: 'The queue has been updated.' });
 }
 
 /**
@@ -49,12 +73,7 @@ function notifyQueueUpdate() {
  * @param {String} message - Notification message
  */
 function notifyUserQueueUpdate(userId, message) {
-  if (io) {
-    io.to(userId.toString()).emit('userQueueUpdated', { message });
-    console.log(`Notification sent to user ID: ${userId}: ${message}`);
-  } else {
-    console.error('WebSocket server not initialized.');
-  }
+  emitToRoom(userId, 'userQueueUpdated', { message });
 }
 
 /**
@@ -87,17 +106,57 @@ function notifyNextUser(userId) {
 }
 
 /**
+ * Notify the next user that their transaction is in-progress
+ * @param {String} userId - The ID of the user
+ * @param {String} transactionNumber - The transaction number
+ */
+function notifyNextInProgress(userId, transactionNumber) {
+  const message = `Your transaction #${transactionNumber} is now in progress. Please proceed.`;
+  notifyUserQueueUpdate(userId, message);
+}
+
+/**
+ * Notify the user who is 2nd in line to prepare
+ * @param {String} userId - The ID of the user
+ */
+function notifySecondInLine(userId) {
+  const message = `Prepare yourself, you are 2nd in line.`;
+  notifyUserQueueUpdate(userId, message);
+}
+
+/**
  * Notify all users of a system-wide message or alert
  * @param {String} message - Notification message
  */
 function notifySystemMessage(message) {
+  emitToAll('systemNotification', { message });
+}
+
+/**
+ * Notify all clients about queue updates
+ */
+function notifyQueueUpdate() {
   if (io) {
-    io.emit('systemNotification', { message }); // Broadcast to all users
-    console.log(`System-wide notification sent: ${message}`);
+    io.emit('queueUpdated');
+    console.log('Queue updated notification sent.');
   } else {
-    console.error('WebSocket server is not initialized.');
+    console.error('WebSocket server not initialized.');
   }
 }
+
+/**
+ * Notify all clients about completed transactions updates
+ */
+function notifyCompletedUpdate() {
+  if (io) {
+    io.emit('completedUpdated');
+    console.log('Completed transactions update notification sent.');
+  } else {
+    console.error('WebSocket server not initialized.');
+  }
+}
+
+
 
 module.exports = {
   initSocket,
@@ -105,6 +164,9 @@ module.exports = {
   notifyUserQueueUpdate,
   notifyInProgress, // Notify in-progress state
   notifyCompletion, // Notify completion state
-  notifyNextUser, // Notify next user
+  notifyNextUser, // Notify next user to prepare
+  notifyNextInProgress, // Notify next user in progress
+  notifySecondInLine, // Notify the user who is 2nd in line
   notifySystemMessage,
+  notifyCompletedUpdate,
 };

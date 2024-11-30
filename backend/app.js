@@ -162,27 +162,29 @@ app.post('/api/admin/notification', (req, res) => {
     (err) => {
       if (err) return res.status(500).json({ message: 'Failed to send notification.' });
 
-      notifyUserQueueUpdate(user_id, { message }); // Emit WebSocket event
+      notifyUserQueueUpdate(user_id, message); // Emit WebSocket event for user notification
       res.status(200).json({ message: 'Notification sent successfully.' });
     }
   );
 });
 
 
+
 app.post('/api/admin/system-notification', (req, res) => {
   const { message } = req.body;
+
   db.run(
-    `INSERT INTO notifications (user_id, message) VALUES (NULL, ?)`,
+    `INSERT INTO notifications (user_id, message) VALUES (NULL, ?)` /* NULL for system-wide */,
     [message],
     (err) => {
       if (err) return res.status(500).json({ message: 'Failed to send system-wide notification.' });
 
-      // Notify all users via WebSocket
-      notifyQueueUpdate();
+      notifyQueueUpdate(); // WebSocket event for all users
       res.status(200).json({ message: 'System-wide notification sent successfully.' });
     }
   );
 });
+
 
 // Trigger automatic notifications on transaction updates
 app.post('/api/transactions/update', (req, res) => {
@@ -202,31 +204,41 @@ app.post('/api/transactions/update', (req, res) => {
         [transaction_id],
         (err, transaction) => {
           if (err || !transaction) {
-            console.error('Error fetching updated transaction:', err?.message || 'Transaction not found.');
-            return res.status(500).json({ message: 'Failed to fetch updated transaction.' });
+            console.error('Error fetching transaction:', err?.message || 'Transaction not found.');
+            return res.status(500).json({ message: 'Failed to fetch transaction.' });
           }
 
-          // Notify the current user about status change
-          const message =
-            status === 'in-progress'
-              ? 'It is now your time to be served.'
-              : 'Your transaction has been successfully completed.';
-          notifyTransactionUpdate({ user_id: transaction.user_id, message });
+          // Notify the current user
+          if (status === 'completed') {
+            notifyUserQueueUpdate(transaction.user_id, `Transaction #${transaction.queue_number} has been completed.`);
+          } else if (status === 'in-progress') {
+            notifyUserQueueUpdate(transaction.user_id, `Your transaction #${transaction.queue_number} is now in progress.`);
+          }
 
-          // Notify the next user in queue
+          // Notify the next user if the current transaction is completed
           if (status === 'completed') {
             db.get(
               `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1`,
               (err, nextTransaction) => {
                 if (!err && nextTransaction) {
-                  notifyNextUser(nextTransaction.user_id, { message: 'You are next. Please be prepared.' });
+                  notifyNextUser(nextTransaction.user_id, 'You are next in line. Please be prepared.');
 
-                  // Update next transaction status
+                  // Update next transaction to 'in-progress'
                   db.run(
                     `UPDATE transactions SET status = 'in-progress' WHERE transaction_id = ?`,
                     [nextTransaction.transaction_id],
                     (err) => {
                       if (err) console.error('Error updating next transaction:', err.message);
+
+                      // Notify the second user in queue
+                      db.get(
+                        `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1 OFFSET 1`,
+                        (err, secondTransaction) => {
+                          if (!err && secondTransaction) {
+                            notifyNextUser(secondTransaction.user_id, 'You are second in line. Please prepare.');
+                          }
+                        }
+                      );
                     }
                   );
                 }
@@ -240,6 +252,7 @@ app.post('/api/transactions/update', (req, res) => {
     }
   );
 });
+
 
 // Default route (serves index.html)
 app.get('/', (req, res) => {

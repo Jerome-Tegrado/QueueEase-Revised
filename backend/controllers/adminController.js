@@ -81,7 +81,6 @@ exports.updateQueueStatus = (req, res) => {
     }
 
     if (status === 'completed') {
-      // Notify the user about transaction completion
       const completedTransactionQuery = `
         SELECT user_id FROM transactions
         WHERE queue_number = ?
@@ -95,14 +94,13 @@ exports.updateQueueStatus = (req, res) => {
         if (transaction) {
           const completedNotificationQuery = `
             INSERT INTO notifications (user_id, message)
-            VALUES (?, 'Transaction #${queueNumber} has been completed.')
+            VALUES (?, 'Your transaction #${queueNumber} has been completed.')
           `;
           db.run(completedNotificationQuery, [transaction.user_id], (err) => {
             if (err) console.error('Failed to send completion notification:', err.message);
           });
         }
 
-        // Move the next transaction to "in-progress"
         const nextTransactionQuery = `
           SELECT * FROM transactions
           WHERE status = 'waiting'
@@ -125,7 +123,6 @@ exports.updateQueueStatus = (req, res) => {
               if (err) console.error('Failed to update next transaction status:', err.message);
             });
 
-            // Notify the user whose transaction is now in-progress
             const inProgressNotificationQuery = `
               INSERT INTO notifications (user_id, message)
               VALUES (?, 'Your transaction #${nextTransaction.queue_number} is now in progress.')
@@ -134,9 +131,8 @@ exports.updateQueueStatus = (req, res) => {
               if (err) console.error('Failed to send in-progress notification:', err.message);
             });
 
-            // Notify the next user in line
             const nextInLineQuery = `
-              SELECT user_id FROM transactions
+              SELECT user_id, queue_number FROM transactions
               WHERE status = 'waiting'
               ORDER BY queue_number ASC
               LIMIT 1
@@ -144,6 +140,7 @@ exports.updateQueueStatus = (req, res) => {
             db.get(nextInLineQuery, [], (err, upcomingUser) => {
               if (err) {
                 console.error('Failed to fetch upcoming user:', err.message);
+                return;
               }
 
               if (upcomingUser) {
@@ -152,7 +149,7 @@ exports.updateQueueStatus = (req, res) => {
                   VALUES (?, 'You are next in line. Please be ready.')
                 `;
                 db.run(nextInLineNotificationQuery, [upcomingUser.user_id], (err) => {
-                  if (err) console.error('Failed to send next in line notification:', err.message);
+                  if (err) console.error('Failed to send next-in-line notification:', err.message);
                 });
               }
             });
@@ -292,4 +289,42 @@ exports.sendNotification = (req, res) => {
       res.json({ message: 'Notification sent successfully.' });
     }
   );
+};
+
+// Fetch live queue data
+exports.getLiveQueue = (req, res) => {
+  const query = `
+    SELECT transactions.queue_number, transactions.user_id, services.service_name AS transaction_type, transactions.status
+    FROM transactions
+    LEFT JOIN services ON transactions.service_id = services.service_id
+    WHERE transactions.status IN ('waiting', 'in-progress')
+    ORDER BY transactions.queue_number ASC
+  `;
+
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching live queue:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch live queue.' });
+    }
+    res.status(200).json(rows);
+  });
+};
+
+// Fetch completed transactions
+exports.getCompletedTransactions = (req, res) => {
+  const query = `
+    SELECT transactions.queue_number, transactions.user_id, services.service_name AS transaction_type, transactions.status
+    FROM transactions
+    LEFT JOIN services ON transactions.service_id = services.service_id
+    WHERE transactions.status = 'completed'
+    ORDER BY transactions.updated_at DESC
+  `;
+
+  db.all(query, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching completed transactions:', err.message);
+      return res.status(500).json({ error: 'Failed to fetch completed transactions.' });
+    }
+    res.status(200).json(rows);
+  });
 };
