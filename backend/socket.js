@@ -31,7 +31,9 @@ function initSocket(server) {
   });
 }
 
-// Edited: Simplified WebSocket notification logic
+/**
+ * Notify all clients about a queue update
+ */
 function notifyQueueUpdate() {
   if (io) {
     io.emit('queueUpdated'); // Notify all clients
@@ -42,61 +44,56 @@ function notifyQueueUpdate() {
 }
 
 /**
- * Notify a specific user about their queue update
+ * Notify a specific user about their queue status update
  * @param {String} userId - The ID of the user to notify
- * @param {Object} data - Notification data to send
+ * @param {String} message - Notification message
  */
-function notifyUserQueueUpdate(userId, data) {
+function notifyUserQueueUpdate(userId, message) {
   if (io) {
-    io.to(userId.toString()).emit('userQueueUpdated', data);
-    console.log(`Notification sent to user ID: ${userId}`);
+    io.to(userId.toString()).emit('userQueueUpdated', { message });
+    console.log(`Notification sent to user ID: ${userId}: ${message}`);
   } else {
     console.error('WebSocket server not initialized.');
   }
 }
 
-
 /**
- * Broadcast an event to update a specific transaction
- * @param {Object} transaction - The transaction data to broadcast
+ * Notify the user whose transaction is now in-progress
+ * @param {String} userId - The ID of the user
+ * @param {String} transactionNumber - The transaction number
  */
-function notifyTransactionUpdate(transaction) {
-  if (io) {
-    io.emit('transactionUpdated', transaction); // Broadcast 'transactionUpdated' event to all clients
-    console.log('Transaction update notification sent to all clients.');
-  } else {
-    console.error('WebSocket server is not initialized.');
-  }
+function notifyInProgress(userId, transactionNumber) {
+  const message = `Your transaction #${transactionNumber} is now in progress.`;
+  notifyUserQueueUpdate(userId, message);
 }
 
 /**
- * Notify the next user in line about their queue status
- * @param {String} nextUserId - The ID of the next user
- * @param {Object} data - Notification data for the next user
+ * Notify the user whose transaction has been completed
+ * @param {String} userId - The ID of the user
+ * @param {String} transactionNumber - The transaction number
  */
-function notifyNextUser(nextUserId, data) {
-  if (io) {
-    io.to(nextUserId).emit('nextQueueNotification', data); // Notify next user
-    console.log(`Next queue notification sent to user ID: ${nextUserId}`);
-  } else {
-    console.error('WebSocket server is not initialized.');
-  }
+function notifyCompletion(userId, transactionNumber) {
+  const message = `Transaction #${transactionNumber} has been completed.`;
+  notifyUserQueueUpdate(userId, message);
 }
 
 /**
- * Notify a user about a system-wide message or alert
- * @param {String} userId - The ID of the user to notify, or null for all users
- * @param {Object} data - Notification data
+ * Notify the next user in line to prepare
+ * @param {String} userId - The ID of the next user
  */
-function notifySystemMessage(userId, data) {
+function notifyNextUser(userId) {
+  const message = `You are next in line. Please be ready.`;
+  notifyUserQueueUpdate(userId, message);
+}
+
+/**
+ * Notify all users of a system-wide message or alert
+ * @param {String} message - Notification message
+ */
+function notifySystemMessage(message) {
   if (io) {
-    if (userId) {
-      io.to(userId).emit('systemNotification', data); // Send system notification to specific user
-      console.log(`System notification sent to user ID: ${userId}`);
-    } else {
-      io.emit('systemNotification', data); // Broadcast to all users
-      console.log('System-wide notification sent to all users.');
-    }
+    io.emit('systemNotification', { message }); // Broadcast to all users
+    console.log(`System-wide notification sent: ${message}`);
   } else {
     console.error('WebSocket server is not initialized.');
   }
@@ -106,7 +103,8 @@ module.exports = {
   initSocket,
   notifyQueueUpdate,
   notifyUserQueueUpdate,
-  notifyTransactionUpdate,
-  notifyNextUser, // Exported for next user notifications
-  notifySystemMessage, // Added function for system-wide notifications
+  notifyInProgress, // Notify in-progress state
+  notifyCompletion, // Notify completion state
+  notifyNextUser, // Notify next user
+  notifySystemMessage,
 };

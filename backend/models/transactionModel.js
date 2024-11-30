@@ -74,7 +74,7 @@ const TransactionModel = {
           case 'in-progress':
             // Notify the current user
             db.run(
-              `INSERT INTO notifications (user_id, message) VALUES (?, 'It is now your turn to be served.')`,
+              `INSERT INTO notifications (user_id, message) VALUES (?, 'Your transaction is now in progress.')`,
               [transaction.user_id],
               (err) => {
                 if (err) console.error('Failed to notify user:', err.message);
@@ -85,7 +85,7 @@ const TransactionModel = {
           case 'completed':
             // Notify the user that their transaction is completed
             db.run(
-              `INSERT INTO notifications (user_id, message) VALUES (?, 'Your transaction has been successfully completed.')`,
+              `INSERT INTO notifications (user_id, message) VALUES (?, 'Transaction #${transaction.queue_number} has been completed.')`,
               [transaction.user_id],
               (err) => {
                 if (err) console.error('Failed to notify user:', err.message);
@@ -113,10 +113,30 @@ const TransactionModel = {
   
                   // Notify the next user
                   db.run(
-                    `INSERT INTO notifications (user_id, message) VALUES (?, 'You are next. Please be prepared.')`,
+                    `INSERT INTO notifications (user_id, message) VALUES (?, 'Your transaction #${nextTransaction.queue_number} is now in progress.')`,
                     [nextTransaction.user_id],
                     (notifyErr) => {
                       if (notifyErr) console.error('Failed to notify next user:', notifyErr.message);
+                    }
+                  );
+
+                  // Notify the upcoming user
+                  db.get(
+                    `SELECT * FROM transactions WHERE status = 'waiting' ORDER BY queue_number ASC LIMIT 1 OFFSET 1`,
+                    (err, upcomingTransaction) => {
+                      if (err) {
+                        console.error('Failed to fetch upcoming transaction:', err.message);
+                        return;
+                      }
+                      if (upcomingTransaction) {
+                        db.run(
+                          `INSERT INTO notifications (user_id, message) VALUES (?, 'You are next in line. Please be prepared.')`,
+                          [upcomingTransaction.user_id],
+                          (upcomingErr) => {
+                            if (upcomingErr) console.error('Failed to notify upcoming user:', upcomingErr.message);
+                          }
+                        );
+                      }
                     }
                   );
                 } else {

@@ -37,50 +37,39 @@ document.getElementById('loginForm')?.addEventListener('submit', async (event) =
 
 // Listen for user-specific queue updates
 socket.on('userQueueUpdated', (data) => {
-  const notificationsContainer = document.getElementById('notificationsContainer');
-  if (!notificationsContainer) {
-    console.error('Notifications container not found.');
-    return;
-  }
-  const notificationCard = `
-      <div class="notification-card">
-          <p>${data.message}</p>
-          <span>${new Date().toLocaleString()}</span>
-      </div>
-  `;
-  notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
+  displayNotification(data.message);
 });
-
 
 // Listen for next queue notifications
 socket.on('nextQueueNotification', (data) => {
-  const notificationsContainer = document.getElementById('notificationsContainer');
-  if (notificationsContainer) {
-    const notificationCard = `
-      <div class="notification-card">
-        <p>${data.message}</p>
-        <span>${new Date().toLocaleString()}</span>
-      </div>
-    `;
-    notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
-  }
+  displayNotification(data.message);
   alert(`Notification: ${data.message}`);
 });
 
 // Listen for real-time transaction updates (in-progress and completed)
 socket.on('transactionStatusUpdate', (data) => {
-  const notificationsContainer = document.getElementById('notificationsContainer');
-  const notificationCard = `
-      <div class="notification-card">
-          <p>${data.message}</p>
-          <span>${new Date().toLocaleString()}</span>
-      </div>
-  `;
-  if (notificationsContainer) {
-    notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
-  }
+  displayNotification(data.message);
   alert(`Notification: ${data.message}`);
 });
+
+/**
+ * Display a notification in the UI
+ * @param {String} message - The notification message
+ */
+function displayNotification(message) {
+  const notificationsContainer = document.getElementById('notificationsContainer');
+  if (notificationsContainer) {
+    const notificationCard = `
+      <div class="notification-card">
+          <p>${message}</p>
+          <span>${new Date().toLocaleString()}</span>
+      </div>
+    `;
+    notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
+  } else {
+    console.error('Notifications container not found.');
+  }
+}
 
 // Fetch and dynamically update the queue display
 async function refreshQueueDisplay() {

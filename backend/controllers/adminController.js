@@ -76,26 +76,33 @@ exports.updateQueueStatus = (req, res) => {
 
   db.run(updateQuery, [status, queueNumber], function (err) {
     if (err) {
+      console.error('Failed to update transaction status:', err.message);
       return res.status(500).json({ message: 'Failed to update queue status.' });
     }
 
     if (status === 'completed') {
+      // Notify the user about transaction completion
       const completedTransactionQuery = `
         SELECT user_id FROM transactions
         WHERE queue_number = ?
       `;
       db.get(completedTransactionQuery, [queueNumber], (err, transaction) => {
-        if (err) return res.status(500).json({ message: 'Failed to fetch transaction details.' });
+        if (err) {
+          console.error('Failed to fetch transaction details:', err.message);
+          return res.status(500).json({ message: 'Failed to fetch transaction details.' });
+        }
+
         if (transaction) {
           const completedNotificationQuery = `
             INSERT INTO notifications (user_id, message)
-            VALUES (?, 'Your transaction has been successfully completed.')
+            VALUES (?, 'Transaction #${queueNumber} has been completed.')
           `;
           db.run(completedNotificationQuery, [transaction.user_id], (err) => {
-            if (err) console.error('Notification insert failed:', err.message);
+            if (err) console.error('Failed to send completion notification:', err.message);
           });
         }
 
+        // Move the next transaction to "in-progress"
         const nextTransactionQuery = `
           SELECT * FROM transactions
           WHERE status = 'waiting'
@@ -103,7 +110,11 @@ exports.updateQueueStatus = (req, res) => {
           LIMIT 1
         `;
         db.get(nextTransactionQuery, [], (err, nextTransaction) => {
-          if (err) return res.status(500).json({ message: 'Failed to fetch the next transaction.' });
+          if (err) {
+            console.error('Failed to fetch next transaction:', err.message);
+            return res.status(500).json({ message: 'Failed to fetch next transaction.' });
+          }
+
           if (nextTransaction) {
             const updateNextQuery = `
               UPDATE transactions
@@ -111,23 +122,49 @@ exports.updateQueueStatus = (req, res) => {
               WHERE transaction_id = ?
             `;
             db.run(updateNextQuery, [nextTransaction.transaction_id], (err) => {
-              if (err) console.error('Failed to update next transaction:', err.message);
+              if (err) console.error('Failed to update next transaction status:', err.message);
             });
 
-            const nextNotificationQuery = `
+            // Notify the user whose transaction is now in-progress
+            const inProgressNotificationQuery = `
               INSERT INTO notifications (user_id, message)
-              VALUES (?, 'You are next. Please be prepared.')
+              VALUES (?, 'Your transaction #${nextTransaction.queue_number} is now in progress.')
             `;
-            db.run(nextNotificationQuery, [nextTransaction.user_id], (err) => {
-              if (err) console.error('Failed to send next user notification:', err.message);
+            db.run(inProgressNotificationQuery, [nextTransaction.user_id], (err) => {
+              if (err) console.error('Failed to send in-progress notification:', err.message);
+            });
+
+            // Notify the next user in line
+            const nextInLineQuery = `
+              SELECT user_id FROM transactions
+              WHERE status = 'waiting'
+              ORDER BY queue_number ASC
+              LIMIT 1
+            `;
+            db.get(nextInLineQuery, [], (err, upcomingUser) => {
+              if (err) {
+                console.error('Failed to fetch upcoming user:', err.message);
+              }
+
+              if (upcomingUser) {
+                const nextInLineNotificationQuery = `
+                  INSERT INTO notifications (user_id, message)
+                  VALUES (?, 'You are next in line. Please be ready.')
+                `;
+                db.run(nextInLineNotificationQuery, [upcomingUser.user_id], (err) => {
+                  if (err) console.error('Failed to send next in line notification:', err.message);
+                });
+              }
             });
           }
         });
       });
     }
+
     res.status(200).json({ message: `Queue #${queueNumber} updated to ${status}.` });
   });
 };
+
 
 
 

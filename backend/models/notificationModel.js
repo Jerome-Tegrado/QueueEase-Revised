@@ -9,7 +9,6 @@ const NotificationModel = {
     `;
     db.run(query, [notification.user_id, notification.message], callback);
   },
-  
 
   // Fetch recent notifications (latest 5) for a specific user
   getRecentNotifications: (user_id, callback) => {
@@ -92,7 +91,7 @@ const NotificationModel = {
 
   // Notify the next user in the queue
   notifyNextUser: (user_id, callback) => {
-    const message = 'It is now your time to be served.';
+    const message = 'Your transaction is now in progress.';
     const query = `
       INSERT INTO notifications (user_id, message)
       VALUES (?, ?)
@@ -102,7 +101,27 @@ const NotificationModel = {
 
   // Notify the upcoming user in the queue
   notifyUpcomingUser: (user_id, callback) => {
-    const message = 'You are next. Please be prepared.';
+    const message = 'You are next in line. Please be prepared.';
+    const query = `
+      INSERT INTO notifications (user_id, message)
+      VALUES (?, ?)
+    `;
+    db.run(query, [user_id, message], callback);
+  },
+
+  // Notify when a transaction is marked as completed
+  notifyCompletedTransaction: (user_id, queue_number, callback) => {
+    const message = `Transaction #${queue_number} has been completed.`;
+    const query = `
+      INSERT INTO notifications (user_id, message)
+      VALUES (?, ?)
+    `;
+    db.run(query, [user_id, message], callback);
+  },
+
+  // Notify when a transaction is marked as in-progress
+  notifyTransactionInProgress: (user_id, queue_number, callback) => {
+    const message = `Your transaction #${queue_number} is now in progress.`;
     const query = `
       INSERT INTO notifications (user_id, message)
       VALUES (?, ?)
