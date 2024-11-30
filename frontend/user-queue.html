@@ -7,27 +7,7 @@
   <link rel="stylesheet" href="css/styles.css">
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    const socket = io(); // Initialize WebSocket connection
-
-    // Load available services for the dropdown
-    async function loadServices() {
-      try {
-        const response = await fetch('/api/admin/services');
-        if (!response.ok) throw new Error('Failed to fetch services.');
-
-        const services = await response.json();
-        const serviceSelect = document.getElementById('service_id');
-
-        services.forEach(service => {
-          const option = document.createElement('option');
-          option.value = service.service_id;
-          option.textContent = service.service_name;
-          serviceSelect.appendChild(option);
-        });
-      } catch (error) {
-        console.error('Error fetching services:', error);
-      }
-    }
+    const socket = io();
 
     // Get user ID from localStorage
     function getUserID() {
@@ -38,6 +18,31 @@
         return null;
       }
       return user_id;
+    }
+
+    // Update queue status dynamically
+    async function updateQueueStatus() {
+      const user_id = getUserID();
+      if (!user_id) return;
+
+      try {
+        const response = await fetch(`/api/user/queue-status/${user_id}`);
+        if (!response.ok) throw new Error('Failed to fetch queue status.');
+
+        const data = await response.json();
+
+        const queueStats = document.getElementById('queueStats');
+        if (data.currently_serving && data.user_queue) {
+          queueStats.innerHTML = `
+            <p><strong>Currently Serving:</strong> Queue #${data.currently_serving.queue_number} (${data.currently_serving.service_name})</p>
+            <p><strong>Your Queue Number:</strong> Queue #${data.user_queue.queue_number} (${data.user_queue.service_name})</p>
+          `;
+        } else {
+          queueStats.innerHTML = '<p>No active queue information available.</p>';
+        }
+      } catch (error) {
+        console.error('Error fetching queue status:', error);
+      }
     }
 
     // Function to join the queue
@@ -64,11 +69,7 @@
 
         const result = await response.json();
         if (response.ok) {
-          alert(
-            `Joined the queue successfully! Your position in the queue is dynamically calculated and will update as needed.`
-          );
-
-          // Notify the server about the queue update
+          alert(`You have successfully joined the queue.`);
           socket.emit('queueUpdated');
         } else {
           alert(result.error || 'Failed to join the queue.');
@@ -78,50 +79,44 @@
       }
     }
 
-    // Listen for real-time updates on the user's queue
-    async function checkUserQueueStatus() {
-      const user_id = getUserID();
-      if (!user_id) return;
-
+    // Load available services for the dropdown
+    async function loadServices() {
       try {
-        const response = await fetch(`/api/user/queue/${user_id}`);
-        if (!response.ok) throw new Error('Failed to fetch user queue status.');
+        const response = await fetch('/api/admin/services');
+        if (!response.ok) throw new Error('Failed to fetch services.');
 
-        const queueData = await response.json();
-        if (queueData.display_queue_number) {
-          alert(`Your current position in the queue is: ${queueData.display_queue_number}`);
-        } else {
-          alert(`You are no longer in the queue or your transaction is complete.`);
-        }
+        const services = await response.json();
+        const serviceSelect = document.getElementById('service_id');
+
+        services.forEach(service => {
+          const option = document.createElement('option');
+          option.value = service.service_id;
+          option.textContent = service.service_name;
+          serviceSelect.appendChild(option);
+        });
       } catch (error) {
-        console.error('Error fetching user queue status:', error);
+        console.error('Error fetching services:', error);
       }
     }
 
-    socket.on('userQueueUpdated', (data) => {
-      console.log('Your queue status has been updated:', data);
-      checkUserQueueStatus(); // Dynamically update the user's position
-    });
-
-    // Initialize the page
+    // Initialize page and real-time updates
     document.addEventListener('DOMContentLoaded', () => {
       loadServices();
 
       const joinQueueButton = document.getElementById('joinQueueButton');
-      if (joinQueueButton) {
-        joinQueueButton.addEventListener('click', joinQueue);
-      } else {
-        console.error('Join Queue button not found in the DOM.');
-      }
+      joinQueueButton.addEventListener('click', joinQueue);
 
-      // Periodically check the user's queue status
-      setInterval(checkUserQueueStatus, 30000); // Check every 30 seconds
+      // Update queue status every second
+      setInterval(updateQueueStatus, 1000);
+
+      // Handle real-time updates via WebSocket
+      socket.on('queueUpdated', updateQueueStatus);
     });
   </script>
 </head>
 <body>
   <header>
-    <h1>Manage Your Queue</h1>
+    <h1>User Queue</h1>
     <nav>
       <a href="user-dashboard.html">Dashboard</a>
       <a href="user-queue.html">Queue</a>
@@ -130,6 +125,10 @@
   </header>
 
   <main>
+    <section id="queueStats">
+      <!-- Queue status will load dynamically here -->
+    </section>
+
     <section>
       <h2>Join Queue</h2>
       <label for="service_id">Choose a transaction:</label>
