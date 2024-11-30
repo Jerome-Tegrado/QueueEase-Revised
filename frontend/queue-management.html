@@ -97,32 +97,39 @@
       }
     }
 
-    // Handle real-time queue updates
-    socket.on('queueUpdated', async () => {
+    // Fetch and populate live queue
+    async function fetchLiveQueue() {
       try {
-        const response = await fetch('/api/admin/queue');
+        const response = await fetch('/api/admin/queue/live');
         const queue = await response.json();
         populateQueueTable(queue);
         updateQueueStats(queue);
       } catch (error) {
-        console.error('Error updating live queue:', error);
+        console.error('Error fetching live queue:', error);
       }
+    }
+
+    // Fetch and populate completed transactions
+    async function fetchCompletedTransactions() {
+      try {
+        const response = await fetch('/api/admin/queue/completed');
+        const completedTransactions = await response.json();
+        populateCompletedTable(completedTransactions);
+      } catch (error) {
+        console.error('Error fetching completed transactions:', error);
+      }
+    }
+
+    // Real-time updates for queue
+    socket.on('queueUpdated', async () => {
+      await fetchLiveQueue();
+      await fetchCompletedTransactions();
     });
 
     // Auto-refresh queue and completed transactions every second
     setInterval(async () => {
-      try {
-        const queueResponse = await fetch('/api/admin/queue');
-        const queue = await queueResponse.json();
-        populateQueueTable(queue);
-        updateQueueStats(queue);
-
-        const completedResponse = await fetch('/api/admin/queue/completed');
-        const completedTransactions = await completedResponse.json();
-        populateCompletedTable(completedTransactions);
-      } catch (error) {
-        console.error('Error during auto-refresh:', error);
-      }
+      await fetchLiveQueue();
+      await fetchCompletedTransactions();
     }, 1000);
 
   </script>

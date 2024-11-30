@@ -166,6 +166,55 @@ router.put('/queue/:queueNumber/:action', (req, res) => {
   });
 });
 
+// EDITED: Fetch completed transactions
+router.get('/queue/completed', (req, res) => {
+  const fetchCompletedQuery = `
+    SELECT 
+      t.queue_number, 
+      t.user_id, 
+      COALESCE(s.service_name, 'Unknown Service') AS transaction_type, 
+      t.status, 
+      t.created_at
+    FROM transactions t
+    LEFT JOIN services s ON t.service_id = s.service_id
+    WHERE t.status = 'completed'
+    ORDER BY t.created_at DESC
+  `;
+
+  db.all(fetchCompletedQuery, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching completed transactions:', err.message);
+      return res.status(500).json({ message: 'Failed to fetch completed transactions.' });
+    }
+    res.json(rows);
+  });
+});
+
+
+// ADDED: Fetch live queue
+router.get('/queue/live', (req, res) => {
+  const fetchQueueQuery = `
+    SELECT 
+      t.queue_number, 
+      t.user_id, 
+      COALESCE(s.service_name, 'Unknown Service') AS transaction_type, 
+      t.status
+    FROM transactions t
+    LEFT JOIN services s ON t.service_id = s.service_id
+    WHERE t.status IN ('waiting', 'in-progress')
+    ORDER BY t.queue_number ASC
+  `;
+
+  db.all(fetchQueueQuery, [], (err, rows) => {
+    if (err) {
+      console.error('Error fetching live queue:', err.message);
+      return res.status(500).json({ message: 'Failed to fetch live queue.' });
+    }
+    res.json(rows);
+  });
+});
+
+
 // Services Management
 router.get('/services', (req, res) => {
   db.all('SELECT * FROM services', [], (err, rows) => {
