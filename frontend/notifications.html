@@ -21,12 +21,8 @@
           return;
         }
 
-        const endpoint =
-          userId === "all"
-            ? "/api/admin/system-notification"
-            : "/api/admin/notification";
-
-        const body = userId === "all" ? { message } : { user_id: userId, message };
+        const endpoint = "/api/admin/notification";
+        const body = { user_id: userId, message };
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -41,6 +37,7 @@
         const result = await response.json();
         alert(result.message);
 
+        // Reset fields after success
         document.getElementById('notificationMessage').value = "";
         document.getElementById('userSelect').value = "select";
       } catch (error) {
@@ -66,11 +63,6 @@
         placeholderOption.selected = true;
         userSelect.appendChild(placeholderOption);
 
-        const allUsersOption = document.createElement("option");
-        allUsersOption.value = "all";
-        allUsersOption.textContent = "All Users";
-        userSelect.appendChild(allUsersOption);
-
         users.forEach((user) => {
           const option = document.createElement("option");
           option.value = user.id;
@@ -83,41 +75,7 @@
       }
     }
 
-    async function loadCompletedTransactions(limit = 5) {
-      try {
-        const response = await fetch(`/api/admin/completed-transactions?limit=${limit}`);
-        if (!response.ok) {
-          throw new Error("Failed to fetch completed transactions.");
-        }
-
-        const transactions = await response.json();
-        const completedTable = document.getElementById("completedTableBody");
-        completedTable.innerHTML = "";
-
-        transactions.forEach((transaction) => {
-          const row = document.createElement("tr");
-          row.innerHTML = `
-            <td>${transaction.queue_number}</td>
-            <td>${transaction.user_id}</td>
-            <td>${transaction.transaction_type}</td>
-            <td>${new Date(transaction.completed_at).toLocaleString()}</td>
-          `;
-          completedTable.appendChild(row);
-        });
-      } catch (error) {
-        console.error("Error loading completed transactions:", error);
-        alert("Error loading completed transactions. Please refresh the page.");
-      }
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      loadUsers();
-      loadCompletedTransactions(); // Load the latest 5 completed transactions by default
-
-      document.getElementById("seeAllCompleted").addEventListener("click", () => {
-        loadCompletedTransactions(1000); // Load all completed transactions
-      });
-    });
+    document.addEventListener("DOMContentLoaded", loadUsers);
   </script>
 </head>
 <body>
@@ -140,25 +98,6 @@
       <textarea id="notificationMessage" placeholder="Type your notification here" rows="5" required></textarea>
       <br><br>
       <button onclick="sendNotification()">Send Notification</button>
-    </section>
-
-    <section>
-      <h2>Latest Completed Transactions</h2>
-      <table border="1">
-        <thead>
-          <tr>
-            <th>Queue Number</th>
-            <th>User ID</th>
-            <th>Transaction Type</th>
-            <th>Completed At</th>
-          </tr>
-        </thead>
-        <tbody id="completedTableBody">
-          <!-- Latest completed transactions will be dynamically populated here -->
-        </tbody>
-      </table>
-      <br>
-      <button id="seeAllCompleted">See All Completed Transactions</button>
     </section>
   </main>
 </body>
