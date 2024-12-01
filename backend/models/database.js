@@ -69,16 +69,6 @@ const initializeDB = () => {
       )
     `);
 
-    // Audit Logs Table
-    db.run(`
-      CREATE TABLE IF NOT EXISTS audit_logs (
-        log_id INTEGER PRIMARY KEY AUTOINCREMENT,
-        admin_id INTEGER, -- Foreign key to users
-        action TEXT,
-        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (admin_id) REFERENCES users(id)
-      )
-    `);
 
     // Log all rows in the 'users' table for debugging
     db.all('SELECT * FROM users', [], (err, rows) => {
