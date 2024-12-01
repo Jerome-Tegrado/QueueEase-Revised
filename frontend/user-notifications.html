@@ -9,13 +9,15 @@
   <script>
     const socket = io();
 
+    let showingAll = false; // Track if "See All" is currently active
+
     // Fetch and display notifications
-    async function loadNotifications() {
+    async function loadNotifications(limit = 5) {
       try {
         const userId = localStorage.getItem('id');
         if (!userId) throw new Error('User not logged in.');
 
-        const response = await fetch(`/api/users/notifications/${userId}`);
+        const response = await fetch(`/api/users/notifications/${userId}?limit=${limit}`);
         if (!response.ok) throw new Error('Failed to fetch notifications.');
 
         const notifications = await response.json();
@@ -42,6 +44,23 @@
       }
     }
 
+    // Toggle between showing all notifications and the default view
+    async function toggleNotifications() {
+      const seeAllBtn = document.getElementById('seeAllBtn');
+
+      if (showingAll) {
+        // Return to the default view (5 most recent)
+        await loadNotifications(5);
+        seeAllBtn.textContent = 'See All';
+        showingAll = false;
+      } else {
+        // Show all notifications
+        await loadNotifications(0); // 0 means no limit
+        seeAllBtn.textContent = 'Show Recent';
+        showingAll = true;
+      }
+    }
+
     // Listen for real-time notifications
     socket.on('transactionCompleted', (data) => handleRealTimeNotification(`Transaction #${data.transactionNumber} has been completed.`));
     socket.on('transactionInProgress', (data) => handleRealTimeNotification(`Your transaction #${data.transactionNumber} is now in progress.`));
@@ -63,12 +82,15 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      loadNotifications();
+      loadNotifications(); // Load recent 5 notifications by default
 
       const userId = localStorage.getItem('id');
       if (userId) {
         socket.emit('registerUser', userId);
       }
+
+      // Attach event listener to "See All" button
+      document.getElementById('seeAllBtn').addEventListener('click', toggleNotifications);
     });
   </script>
 </head>
@@ -84,7 +106,9 @@
   <main>
     <section id="notificationsContainer">
       <!-- Notifications will load here dynamically -->
+      <p>Loading notifications...</p>
     </section>
+    <button id="seeAllBtn">See All</button>
   </main>
 </body>
 </html>

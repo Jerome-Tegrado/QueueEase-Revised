@@ -109,4 +109,28 @@ router.post('/transactions', (req, res) => {
     });
 });
 
+// Fetch notifications for a specific user
+router.get('/notifications/:userId', (req, res) => {
+    const userId = req.params.userId;
+    const limit = req.query.limit ? parseInt(req.query.limit) : 0; // Default limit: 0 (no limit)
+  
+    const query = `
+      SELECT * FROM notifications
+      WHERE user_id = ?
+      ORDER BY created_at DESC
+      ${limit > 0 ? `LIMIT ?` : ''}
+    `;
+  
+    db.all(query, limit > 0 ? [userId, limit] : [userId], (err, rows) => {
+      if (err) {
+        console.error('Error fetching notifications:', err.message);
+        return res.status(500).json({ error: 'Failed to fetch notifications.' });
+      }
+  
+      res.json(rows);
+    });
+  });
+  
+
+  
 module.exports = router;
