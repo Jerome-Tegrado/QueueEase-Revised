@@ -78,7 +78,14 @@
         </div>
       `;
       notificationsContainer.innerHTML = notificationCard + notificationsContainer.innerHTML;
-      alert(`Notification: ${message}`);
+    }
+
+    // Auto-update notifications every second
+    function startAutoUpdate() {
+      setInterval(() => {
+        const limit = showingAll ? 0 : 5; // Adjust limit based on "See All" state
+        loadNotifications(limit);
+      }, 1000); // Update every second
     }
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -91,6 +98,9 @@
 
       // Attach event listener to "See All" button
       document.getElementById('seeAllBtn').addEventListener('click', toggleNotifications);
+
+      // Start auto-updating notifications
+      startAutoUpdate();
     });
   </script>
 </head>
