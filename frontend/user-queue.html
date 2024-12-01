@@ -22,28 +22,34 @@
 
     // Update queue status dynamically
     async function updateQueueStatus() {
-      const user_id = getUserID();
-      if (!user_id) return;
+  const user_id = getUserID();
+  if (!user_id) return;
 
-      try {
-        const response = await fetch(`/api/user/queue-status/${user_id}`);
-        if (!response.ok) throw new Error('Failed to fetch queue status.');
+  try {
+    const response = await fetch(`/api/users/queue-status/${user_id}`);
+    if (!response.ok) throw new Error('Failed to fetch queue status.');
 
-        const data = await response.json();
+    const data = await response.json();
+    const queueStats = document.getElementById('queueStats');
+    const { currently_serving, user_queue } = data;
 
-        const queueStats = document.getElementById('queueStats');
-        if (data.currently_serving && data.user_queue) {
-          queueStats.innerHTML = `
-            <p><strong>Currently Serving:</strong> Queue #${data.currently_serving.queue_number} (${data.currently_serving.service_name})</p>
-            <p><strong>Your Queue Number:</strong> Queue #${data.user_queue.queue_number} (${data.user_queue.service_name})</p>
-          `;
-        } else {
-          queueStats.innerHTML = '<p>No active queue information available.</p>';
-        }
-      } catch (error) {
-        console.error('Error fetching queue status:', error);
-      }
-    }
+    queueStats.innerHTML = `
+      <p><strong>Currently Serving:</strong> ${
+        currently_serving.queue_number !== 'None'
+          ? `Queue #${currently_serving.queue_number} (${currently_serving.service_name})`
+          : 'None'
+      }</p>
+      <p><strong>Your Queue Number:</strong> ${
+        user_queue.queue_number !== 'Not in queue'
+          ? `Queue #${user_queue.queue_number} (${user_queue.service_name})`
+          : 'Not in queue'
+      }</p>
+    `;
+  } catch (error) {
+    console.error('Error fetching queue status:', error);
+    document.getElementById('queueStats').innerHTML = '<p>Failed to load queue status.</p>';
+  }
+}
 
     // Function to join the queue
     async function joinQueue() {
@@ -61,28 +67,30 @@
       const data = { user_id, service_id };
 
       try {
-        const response = await fetch('/api/admin/transactions', {
+        const response = await fetch('/api/users/transactions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         });
 
         const result = await response.json();
+
         if (response.ok) {
-          alert(`You have successfully joined the queue.`);
-          socket.emit('queueUpdated');
+          alert('You have successfully joined the queue.');
+          socket.emit('queueUpdated'); // Notify server of the queue update
         } else {
           alert(result.error || 'Failed to join the queue.');
         }
       } catch (error) {
-        console.error('Error:', error);
+        console.error('Error joining queue:', error);
+        alert('An unexpected error occurred.');
       }
     }
 
     // Load available services for the dropdown
     async function loadServices() {
       try {
-        const response = await fetch('/api/admin/services');
+        const response = await fetch('/api/users/services');
         if (!response.ok) throw new Error('Failed to fetch services.');
 
         const services = await response.json();
@@ -96,6 +104,7 @@
         });
       } catch (error) {
         console.error('Error fetching services:', error);
+        alert('Failed to load services.');
       }
     }
 
@@ -127,6 +136,7 @@
   <main>
     <section id="queueStats">
       <!-- Queue status will load dynamically here -->
+      <p>Loading queue status...</p>
     </section>
 
     <section>
