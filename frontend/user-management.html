@@ -8,9 +8,11 @@
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io(); // Initialize WebSocket connection
+    let isEditing = false; // Flag to track if editing is in progress
 
     // Function to load users and dynamically update the user and admin tables
     async function loadUsers() {
+      if (isEditing) return; // Skip refreshing if editing is active
       try {
         const response = await fetch('/api/admin/users');
         if (!response.ok) {
@@ -95,6 +97,7 @@
 
     // Enable edit mode for a row
     function enableEdit(editButton) {
+      isEditing = true; // Set flag to true
       const row = editButton.closest('tr');
       row.querySelectorAll('td[contenteditable]').forEach(cell => {
         cell.contentEditable = 'true';
@@ -128,6 +131,7 @@
         if (response.ok) {
           alert('User updated successfully.');
           socket.emit('usersUpdated'); // Notify other clients of the update
+          isEditing = false; // Reset flag after saving
         } else {
           const result = await response.json();
           alert(result.message || 'Failed to update user.');
@@ -168,7 +172,11 @@
     socket.on('usersUpdated', loadUsers);
 
     // Auto-refresh user data every second
-    setInterval(loadUsers, 1000);
+    setInterval(() => {
+      if (!isEditing) {
+        loadUsers();
+      }
+    }, 1000);
 
     // Load users when the page is loaded
     document.addEventListener('DOMContentLoaded', loadUsers);
