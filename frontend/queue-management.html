@@ -1,191 +1,254 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Queue Management | QueueEase</title>
-  <link rel="stylesheet" href="css/styles.css">
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Queue Management | QueueEase</title>
+		<link rel="stylesheet" href="css/styles.css" />
+		<script src="/socket.io/socket.io.js"></script>
+		<script
+			type="text/javascript"
+			src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
+		></script>
+		<script type="text/javascript">
+			(function () {
+				emailjs.init("jj0Su_cpamOsao4Dl");
+			})();
+		</script>
+		<script>
+			const socket = io();
 
-    // Function to dynamically update queue statistics
-    function updateQueueStats(queue) {
-      const queueStats = document.getElementById('queueStats');
-      if (queue.length > 0) {
-        const firstQueue = queue[0];
-        const nextQueue = queue.length > 1 ? queue[1] : null;
+			// Function to dynamically update queue statistics
+			function updateQueueStats(queue) {
+				const queueStats = document.getElementById("queueStats");
+				if (queue.length > 0) {
+					const firstQueue = queue[0];
+					const nextQueue = queue.length > 1 ? queue[1] : null;
 
-        queueStats.innerHTML = `
-          <p><strong>Currently Serving:</strong> Queue #${firstQueue.queue_number}</p>
-          <p><strong>Next in Line:</strong> ${nextQueue ? `Queue #${nextQueue.queue_number}` : 'None'}</p>
+					queueStats.innerHTML = `
+          <p><strong>Currently Serving:</strong> Queue #${
+						firstQueue.queue_number
+					}</p>
+          <p><strong>Next in Line:</strong> ${
+						nextQueue ? `Queue #${nextQueue.queue_number}` : "None"
+					}</p>
           <p><strong>Users in Line:</strong> ${queue.length}</p>
         `;
-      } else {
-        queueStats.innerHTML = '<p>No users in the queue.</p>';
-      }
-    }
+				} else {
+					queueStats.innerHTML = "<p>No users in the queue.</p>";
+				}
+			}
 
-    // Function to populate the live queue table dynamically
-    function populateQueueTable(queue) {
-      const queueTable = document.getElementById('queueTable');
-      queueTable.innerHTML = ''; // Clear existing rows
+			// Function to populate the live queue table dynamically
+			function populateQueueTable(queue) {
+				const queueTable = document.getElementById("queueTable");
+				queueTable.innerHTML = ""; // Clear existing rows
 
-      queue.forEach(item => {
-        const row = document.createElement('tr');
-        row.id = `queueRow-${item.queue_number}`;
-        row.innerHTML = `
+				queue.forEach((item) => {
+					const row = document.createElement("tr");
+					row.id = `queueRow-${item.queue_number}`;
+					row.innerHTML = `
           <td>${item.queue_number}</td>
           <td>${item.user_id}</td>
           <td>${item.transaction_type}</td>
-          <td>${item.status || 'waiting'}</td>
+          <td>${item.status || "waiting"}</td>
           <td>
-            <button onclick="updateQueue(${item.queue_number}, 'prioritize')">In Progress</button>
-            <button onclick="updateQueue(${item.queue_number}, 'complete')">Complete</button>
-            <button onclick="updateQueue(${item.queue_number}, 'cancel')">Cancel</button>
+            <button onclick="updateQueue(${
+							item.queue_number
+						}, 'prioritize')">In Progress</button>
+            <button onclick="updateQueue(${
+							item.queue_number
+						}, 'complete')">Complete</button>
+            <button onclick="updateQueue(${
+							item.queue_number
+						}, 'cancel')">Cancel</button>
           </td>
         `;
-        queueTable.appendChild(row);
-      });
-    }
+					queueTable.appendChild(row);
+				});
+			}
 
-    // Function to populate the completed transactions table dynamically
-    function populateCompletedTable(transactions) {
-      const completedTable = document.getElementById('completedTable');
-      completedTable.innerHTML = ''; // Clear existing rows
+			// Function to populate the completed transactions table dynamically
+			function populateCompletedTable(transactions) {
+				const completedTable = document.getElementById("completedTable");
+				completedTable.innerHTML = ""; // Clear existing rows
 
-      transactions.forEach(item => {
-        const row = document.createElement('tr');
-        row.innerHTML = `
+				transactions.forEach((item) => {
+					const row = document.createElement("tr");
+					row.innerHTML = `
           <td>${item.queue_number}</td>
           <td>${item.user_id}</td>
           <td>${item.transaction_type}</td>
           <td>${item.status}</td>
         `;
-        completedTable.appendChild(row);
-      });
-    }
+					completedTable.appendChild(row);
+				});
+			}
 
-    // Update queue status via fetch API
-    async function updateQueue(queueNumber, action) {
-      try {
-        const response = await fetch(`/api/admin/queue/${queueNumber}/${action}`, { method: 'PUT' });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || 'Failed to update queue.');
-        }
+			// Update queue status via fetch API
+			async function updateQueue(queueNumber, action) {
+				try {
+					const response = await fetch(
+						`/api/admin/queue/${queueNumber}/${action}`,
+						{ method: "PUT" }
+					);
+					if (!response.ok) {
+						const errorData = await response.json();
+						throw new Error(errorData.error || "Failed to update queue.");
+					}
 
-        if (action === 'prioritize') {
-          alert(`Queue #${queueNumber} is now in progress.`);
-          
-          // Notify the next user in line
-          const nextUserResponse = await fetch(`/api/admin/queue/${queueNumber}/notify-next`, { method: 'POST' });
-          if (!nextUserResponse.ok) {
-            console.error('Failed to notify the next user.');
-          }
-        } else if (action === 'complete') {
-          alert(`Queue #${queueNumber} has been completed.`);
-        } else if (action === 'cancel') {
-          alert(`Queue #${queueNumber} has been canceled.`);
-        }
+					if (action === "prioritize") {
+						alert(`Queue #${queueNumber} is now in progress.`);
 
-        // Notify server to refresh data
-        socket.emit('queueUpdated');
-      } catch (error) {
-        console.error('Error updating queue:', error);
-        alert('Error updating queue. Please try again.');
-      }
-    }
+						// Notify the next user in line
+						const nextUserResponse = await fetch(
+							`/api/admin/queue/${queueNumber}/notify-next`,
+							{ method: "POST" }
+						);
 
-    // Fetch and populate live queue
-    async function fetchLiveQueue() {
-      try {
-        const response = await fetch('/api/admin/queue/live');
-        const queue = await response.json();
-        populateQueueTable(queue);
-        updateQueueStats(queue);
-      } catch (error) {
-        console.error('Error fetching live queue:', error);
-      }
-    }
+						if (!nextUserResponse.ok) {
+							console.error("Failed to notify the next user.");
+						} else {
+							console.log("Next user notified successfully.");
 
-    // Fetch and populate completed transactions
-    async function fetchCompletedTransactions() {
-      try {
-        const response = await fetch('/api/admin/queue/completed');
-        const completedTransactions = await response.json();
-        populateCompletedTable(completedTransactions);
-      } catch (error) {
-        console.error('Error fetching completed transactions:', error);
-      }
-    }
+							// Get the email of the next user from the response
+							const data = await nextUserResponse.json();
+              console.log("Response Data:", data);
+							const userEmail = data.email; // Get the email from the response
+							const userFirstName = data.firstName;
+							const dynamicMessage = data.dynamicMessage;
 
-    // Real-time updates for queue
-    socket.on('queueUpdated', async () => {
-      await fetchLiveQueue();
-      await fetchCompletedTransactions();
-    });
+							console.log("Email:", userEmail);
+							console.log("Name:", userFirstName); // Check if firstName is coming from the backend
+							console.log("Message:", dynamicMessage);
 
-    // Auto-refresh queue and completed transactions every second
-    setInterval(async () => {
-      await fetchLiveQueue();
-      await fetchCompletedTransactions();
-    }, 1000);
+							// Trigger email notification from frontend
+							sendEmailNotification(userEmail, userFirstName, dynamicMessage);
+              //sendEmailNotification(userEmail, 'pls', 'wow message');
+						}
+					} else if (action === "complete") {
+						alert(`Queue #${queueNumber} has been completed.`);
+					} else if (action === "cancel") {
+						alert(`Queue #${queueNumber} has been canceled.`);
+					}
 
-  </script>
-</head>
-<body>
-  <header>
-    <h1>Queue Management</h1>
-    <nav>
-      <a href="admin-dashboard.html">Dashboard</a>
-      <a href="queue-management.html">Manage Queue</a>
-      <a href="notifications.html">Notifications</a>
-      <a href="index.html">Logout</a>
-    </nav>
-  </header>
+					// Notify server to refresh data
+					socket.emit("queueUpdated");
+				} catch (error) {
+					console.error("Error updating queue:", error);
+					alert("Error updating queue. Please try again.");
+				}
+			}
 
-  <main>
-    <section id="queueStats">
-      <!-- Queue statistics will load here dynamically -->
-    </section>
+			// Function to send the email using EmailJS
+			async function sendEmailNotification(toEmail, firstName, message) {
+				console.log("Sending email to:", toEmail);
+				console.log("Name:", firstName);
+				console.log("Message:", message);
+				try {
+					const response = await emailjs.send(
+						"service_mffe2pa",
+						"template_3q3hy0q",
+						{
+							to_email: toEmail,
+							name: firstName,
+							message: message,
+						}
+					);
+					console.log("Email sent successfully:", response);
+				} catch (error) {
+					console.error("Error sending email:", error);
+				}
+			}
 
-    <section>
-      <h2>Live Queue</h2>
-      <table border="1">
-        <thead>
-          <tr>
-            <th>Queue Number</th>
-            <th>User ID</th>
-            <th>Transaction Type</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="queueTable">
-          <!-- Live Queue rows will be dynamically generated here -->
-        </tbody>
-      </table>
-    </section>
+			// Fetch and populate live queue
+			async function fetchLiveQueue() {
+				try {
+					const response = await fetch("/api/admin/queue/live");
+					const queue = await response.json();
+					populateQueueTable(queue);
+					updateQueueStats(queue);
+				} catch (error) {
+					console.error("Error fetching live queue:", error);
+				}
+			}
 
-    <hr />
+			// Fetch and populate completed transactions
+			async function fetchCompletedTransactions() {
+				try {
+					const response = await fetch("/api/admin/queue/completed");
+					const completedTransactions = await response.json();
+					populateCompletedTable(completedTransactions);
+				} catch (error) {
+					console.error("Error fetching completed transactions:", error);
+				}
+			}
 
-    <section>
-      <h2>Completed Transactions</h2>
-      <table border="1">
-        <thead>
-          <tr>
-            <th>Queue Number</th>
-            <th>User ID</th>
-            <th>Transaction Type</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="completedTable">
-          <!-- Completed Transactions rows will be dynamically generated here -->
-        </tbody>
-      </table>
-    </section>
-  </main>
-</body>
+			// Real-time updates for queue
+			socket.on("queueUpdated", async () => {
+				await fetchLiveQueue();
+				await fetchCompletedTransactions();
+			});
+
+			// Auto-refresh queue and completed transactions every second
+			setInterval(async () => {
+				await fetchLiveQueue();
+				await fetchCompletedTransactions();
+			}, 1000);
+		</script>
+	</head>
+	<body>
+		<header>
+			<h1>Queue Management</h1>
+			<nav>
+				<a href="admin-dashboard.html">Dashboard</a>
+				<a href="queue-management.html">Manage Queue</a>
+				<a href="notifications.html">Notifications</a>
+				<a href="index.html">Logout</a>
+			</nav>
+		</header>
+
+		<main>
+			<section id="queueStats">
+				<!-- Queue statistics will load here dynamically -->
+			</section>
+
+			<section>
+				<h2>Live Queue</h2>
+				<table border="1">
+					<thead>
+						<tr>
+							<th>Queue Number</th>
+							<th>User ID</th>
+							<th>Transaction Type</th>
+							<th>Status</th>
+							<th>Actions</th>
+						</tr>
+					</thead>
+					<tbody id="queueTable">
+						<!-- Live Queue rows will be dynamically generated here -->
+					</tbody>
+				</table>
+			</section>
+
+			<hr />
+
+			<section>
+				<h2>Completed Transactions</h2>
+				<table border="1">
+					<thead>
+						<tr>
+							<th>Queue Number</th>
+							<th>User ID</th>
+							<th>Transaction Type</th>
+							<th>Status</th>
+						</tr>
+					</thead>
+					<tbody id="completedTable">
+						<!-- Completed Transactions rows will be dynamically generated here -->
+					</tbody>
+				</table>
+			</section>
+		</main>
+	</body>
 </html>
