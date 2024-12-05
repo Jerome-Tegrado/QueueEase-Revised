@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Notifications Management | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
   <script src="/socket.io/socket.io.js"></script>
@@ -17,6 +17,8 @@
   </script>
   <script>
       const socket = io();
+      let allNotifications = [];
+      let showingAll = false;
 
       // Function to send a personalized notification
       async function sendNotification() {
@@ -135,25 +137,55 @@
                   throw new Error("Failed to fetch notifications.");
               }
 
-              const notifications = await response.json();
-              const notificationsTable = document.getElementById("notificationsTable");
-              notificationsTable.innerHTML = ""; // Clear existing rows
-
-              notifications.forEach((notif) => {
-                  const row = document.createElement("tr");
-                  row.innerHTML = `
-                      <td>${notif.id}</td>
-                      <td>${notif.user_id}</td>
-                      <td>${notif.message}</td>
-                      <td>${new Date(notif.created_at).toLocaleString()}</td>
-                  `;
-                  notificationsTable.appendChild(row);
-              });
+              allNotifications = await response.json();
+              renderNotifications();
           } catch (error) {
               console.error("Error fetching notifications:", error);
               alert("Error fetching notifications.");
           }
       }
+
+      // Function to render notifications based on the current view
+      function renderNotifications() {
+          const notificationsTable = document.getElementById("notificationsTable");
+          notificationsTable.innerHTML = ""; // Clear existing rows
+
+          // Sort notifications by created_at or ID in descending order
+          const sortedNotifications = allNotifications.sort((a, b) => b.created_at.localeCompare(a.created_at));
+
+          let notificationsToDisplay = sortedNotifications;
+
+          if (!showingAll) {
+              notificationsToDisplay = sortedNotifications.slice(0, 10); // Show last 10, newest first
+          }
+
+          notificationsToDisplay.forEach((notif) => {
+              const row = document.createElement("tr");
+              row.innerHTML = `
+                  <td>${notif.user_id}</td>
+                  <td>${notif.message}</td>
+                  <td>${new Date(notif.created_at).toLocaleString()}</td>
+              `;
+              notificationsTable.appendChild(row);
+          });
+
+          // Update the toggle button text
+          const toggleButton = document.getElementById("toggleNotifications");
+          if (showingAll) {
+              toggleButton.textContent = "Show Recent 10";
+          } else {
+              toggleButton.textContent = "See All";
+          }
+      }
+
+      // Function to toggle between showing all notifications and recent 10
+      function toggleNotifications() {
+          showingAll = !showingAll;
+          renderNotifications();
+      }
+
+      // Auto-refresh notifications every 5 seconds
+      setInterval(populateNotifications, 5000);
 
       // Listen for real-time notification events
       socket.on("notificationSent", () => {
@@ -200,7 +232,6 @@
       <table border="1">
           <thead>
               <tr>
-                  <th>Notification ID</th>
                   <th>User ID</th>
                   <th>Message</th>
                   <th>Timestamp</th>
@@ -210,6 +241,8 @@
               <!-- Notifications will be dynamically populated here -->
           </tbody>
       </table>
+      <br>
+      <button id="toggleNotifications" onclick="toggleNotifications()">See All</button>
     </section>
   </main>
 </body>
