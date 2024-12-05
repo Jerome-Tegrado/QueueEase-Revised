@@ -5,77 +5,165 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Notifications Management | QueueEase</title>
   <link rel="stylesheet" href="css/styles.css">
+  <script src="/socket.io/socket.io.js"></script>
+  <script
+      type="text/javascript"
+      src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"
+  ></script>
+  <script type="text/javascript">
+      (function () {
+          emailjs.init("_3-17_pX9sbhDPRK0"); // Replace with your EmailJS user ID
+      })();
+  </script>
   <script>
-    async function sendNotification() {
-      try {
-        const userId = document.getElementById('userSelect').value;
-        const message = document.getElementById('notificationMessage').value.trim();
+      const socket = io();
 
-        if (!userId || userId === "select") {
-          alert("Please select a user.");
-          return;
-        }
+      // Function to send a personalized notification
+      async function sendNotification() {
+          try {
+              const userId = document.getElementById('userSelect').value;
+              const message = document.getElementById('notificationMessage').value.trim();
 
-        if (!message) {
-          alert("Notification message cannot be empty.");
-          return;
-        }
+              if (!userId || userId === "select") {
+                  alert("Please select a user.");
+                  return;
+              }
 
-        const endpoint = "/api/admin/notification";
-        const body = { user_id: userId, message };
+              if (!message) {
+                  alert("Notification message cannot be empty.");
+                  return;
+              }
 
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
+              const endpoint = "/api/admin/notification";
+              const body = { userId, message };
 
-        if (!response.ok) {
-          throw new Error("Failed to send notification.");
-        }
+              const response = await fetch(endpoint, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(body),
+              });
 
-        const result = await response.json();
-        alert(result.message);
+              if (!response.ok) {
+                  const errorData = await response.json();
+                  throw new Error(errorData.error || "Failed to send notification.");
+              }
 
-        // Reset fields after success
-        document.getElementById('notificationMessage').value = "";
-        document.getElementById('userSelect').value = "select";
-      } catch (error) {
-        console.error("Error sending notification:", error);
-        alert("Error sending notification. Please try again.");
+              const result = await response.json();
+              alert(result.message);
+
+              // Send emails using EmailJS for each notification
+              if (result.notifications && Array.isArray(result.notifications)) {
+                  result.notifications.forEach((emailData) => {
+                      if (emailData.email && emailData.firstName && emailData.dynamicMessage) {
+                          sendEmailNotification(emailData.email, emailData.firstName, emailData.dynamicMessage);
+                      } else {
+                          console.warn("Email details missing in the notification:", emailData);
+                      }
+                  });
+              } else {
+                  console.warn("No notifications found in the response.");
+              }
+
+              // Reset fields after success
+              document.getElementById('notificationMessage').value = "";
+              document.getElementById('userSelect').value = "select";
+          } catch (error) {
+              console.error("Error sending notification:", error);
+              alert("Error sending notification. Please try again.");
+          }
       }
-    }
 
-    async function loadUsers() {
-      try {
-        const response = await fetch("/api/admin/users");
-        if (!response.ok) {
-          throw new Error("Failed to fetch users.");
-        }
-
-        const users = await response.json();
-        const userSelect = document.getElementById("userSelect");
-
-        const placeholderOption = document.createElement("option");
-        placeholderOption.value = "select";
-        placeholderOption.textContent = "Select a User";
-        placeholderOption.disabled = true;
-        placeholderOption.selected = true;
-        userSelect.appendChild(placeholderOption);
-
-        users.forEach((user) => {
-          const option = document.createElement("option");
-          option.value = user.id;
-          option.textContent = `${user.first_name} ${user.last_name} (${user.email})`;
-          userSelect.appendChild(option);
-        });
-      } catch (error) {
-        console.error("Error loading users:", error);
-        alert("Error loading users. Please refresh the page.");
+      // Function to send the email using EmailJS
+      async function sendEmailNotification(toEmail, firstName, message) {
+          console.log("Preparing to send email to:", toEmail);
+          console.log("Name:", firstName);
+          console.log("Message:", message);
+          try {
+              const response = await emailjs.send(
+                  "service_ectj92j",    // Replace with your EmailJS service ID
+                  "template_on7sfyq",   // Replace with your EmailJS template ID
+                  {
+                      to_email: toEmail,
+                      name: firstName,
+                      message: message,
+                  }
+              );
+              console.log("Email sent successfully:", response);
+          } catch (error) {
+              console.error("Error sending email:", error);
+          }
       }
-    }
 
-    document.addEventListener("DOMContentLoaded", loadUsers);
+      // Function to load users into the dropdown
+      async function loadUsers() {
+          try {
+              const response = await fetch("/api/admin/users");
+              if (!response.ok) {
+                  throw new Error("Failed to fetch users.");
+              }
+
+              const users = await response.json();
+              const userSelect = document.getElementById("userSelect");
+
+              // Clear existing options except the placeholder
+              userSelect.innerHTML = "";
+
+              const placeholderOption = document.createElement("option");
+              placeholderOption.value = "select";
+              placeholderOption.textContent = "Select a User";
+              placeholderOption.disabled = true;
+              placeholderOption.selected = true;
+              userSelect.appendChild(placeholderOption);
+
+              users.forEach((user) => {
+                  const option = document.createElement("option");
+                  option.value = user.id;
+                  option.textContent = `${user.first_name} ${user.last_name} (${user.email})`;
+                  userSelect.appendChild(option);
+              });
+          } catch (error) {
+              console.error("Error loading users:", error);
+              alert("Error loading users. Please refresh the page.");
+          }
+      }
+
+      // Function to populate the notifications table
+      async function populateNotifications() {
+          try {
+              const response = await fetch("/api/admin/notifications");
+              if (!response.ok) {
+                  throw new Error("Failed to fetch notifications.");
+              }
+
+              const notifications = await response.json();
+              const notificationsTable = document.getElementById("notificationsTable");
+              notificationsTable.innerHTML = ""; // Clear existing rows
+
+              notifications.forEach((notif) => {
+                  const row = document.createElement("tr");
+                  row.innerHTML = `
+                      <td>${notif.id}</td>
+                      <td>${notif.user_id}</td>
+                      <td>${notif.message}</td>
+                      <td>${new Date(notif.created_at).toLocaleString()}</td>
+                  `;
+                  notificationsTable.appendChild(row);
+              });
+          } catch (error) {
+              console.error("Error fetching notifications:", error);
+              alert("Error fetching notifications.");
+          }
+      }
+
+      // Listen for real-time notification events
+      socket.on("notificationSent", () => {
+          populateNotifications();
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+          loadUsers();
+          populateNotifications();
+      });
   </script>
 </head>
 <body>
@@ -83,6 +171,7 @@
     <h1>Notifications Management</h1>
     <nav>
       <a href="admin-dashboard.html">Dashboard</a>
+      <a href="queue-management.html">Manage Queue</a>
       <a href="notifications.html">Notifications</a>
       <a href="index.html">Logout</a>
     </nav>
@@ -90,14 +179,37 @@
   <main>
     <section>
       <h2>Send Notification</h2>
-      <label for="userSelect">Select User:</label>
-      <select id="userSelect" required>
-        <!-- Dynamically populated -->
-      </select>
-      <br><br>
-      <textarea id="notificationMessage" placeholder="Type your notification here" rows="5" required></textarea>
-      <br><br>
-      <button onclick="sendNotification()">Send Notification</button>
+      <form id="sendNotificationForm" onsubmit="event.preventDefault(); sendNotification();">
+          <label for="userSelect">Select User:</label>
+          <select id="userSelect" required>
+              <!-- Dynamically populated -->
+          </select>
+          <br><br>
+          <label for="notificationMessage">Message:</label>
+          <br>
+          <textarea id="notificationMessage" placeholder="Type your notification here" rows="5" required></textarea>
+          <br><br>
+          <button type="submit">Send Notification</button>
+      </form>
+    </section>
+
+    <hr />
+
+    <section>
+      <h2>All Notifications</h2>
+      <table border="1">
+          <thead>
+              <tr>
+                  <th>Notification ID</th>
+                  <th>User ID</th>
+                  <th>Message</th>
+                  <th>Timestamp</th>
+              </tr>
+          </thead>
+          <tbody id="notificationsTable">
+              <!-- Notifications will be dynamically populated here -->
+          </tbody>
+      </table>
     </section>
   </main>
 </body>
