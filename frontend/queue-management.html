@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+    <!-- ... existing head content ... -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Queue Management | QueueEase</title>
@@ -17,6 +18,10 @@
     </script>
     <script>
         const socket = io();
+
+        // Initialize variables for completed transactions
+        let allCompletedTransactions = [];
+        let showingAllCompleted = false; // Flag to track whether all completed transactions are being shown
 
         // Function to dynamically update queue statistics
         function updateQueueStats(queue) {
@@ -59,11 +64,16 @@
         }
 
         // Function to populate the completed transactions table dynamically
-        function populateCompletedTable(transactions) {
+        function populateCompletedTable() {
             const completedTable = document.getElementById("completedTable");
             completedTable.innerHTML = ""; // Clear existing rows
 
-            transactions.forEach((item) => {
+            // Decide how many transactions to display based on showingAllCompleted flag
+            let transactionsToDisplay = showingAllCompleted
+                ? allCompletedTransactions
+                : allCompletedTransactions.slice(0, 10); // Show only the 10 most recent
+
+            transactionsToDisplay.forEach((item) => {
                 const row = document.createElement("tr");
                 row.innerHTML = `
                     <td>${item.queue_number}</td>
@@ -157,15 +167,32 @@
             }
         }
 
-        // Fetch and populate completed transactions
+        // Fetch and store all completed transactions
         async function fetchCompletedTransactions() {
             try {
                 const response = await fetch("/api/admin/queue/completed");
                 const completedTransactions = await response.json();
-                populateCompletedTable(completedTransactions);
+                allCompletedTransactions = completedTransactions;
+
+                // Sort transactions by created_at descending (if available)
+                if (allCompletedTransactions.length > 0 && allCompletedTransactions[0].created_at) {
+                    allCompletedTransactions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                } else {
+                    // If 'created_at' is not available, sort by 'queue_number' descending
+                    allCompletedTransactions.sort((a, b) => b.queue_number - a.queue_number);
+                }
+
+                populateCompletedTable();
             } catch (error) {
                 console.error("Error fetching completed transactions:", error);
             }
+        }
+
+        // Function to toggle between showing recent 10 and all completed transactions
+        function toggleCompletedTransactions() {
+            showingAllCompleted = !showingAllCompleted;
+            populateCompletedTable();
+            document.getElementById("toggleCompletedButton").textContent = showingAllCompleted ? "Show Recent 10" : "See All";
         }
 
         // Real-time updates for queue
@@ -178,11 +205,15 @@
         setInterval(async () => {
             await fetchLiveQueue();
             await fetchCompletedTransactions();
-        }, 1000); // 5 seconds
+        }, 5000); // 5 seconds
 
-        // ==========================
+        // Initial fetch on page load
+        document.addEventListener("DOMContentLoaded", () => {
+            fetchLiveQueue();
+            fetchCompletedTransactions();
+        });
+
         // New: Form to Create a Transaction (User Joining the Queue)
-        // ==========================
         async function createTransaction(event) {
             event.preventDefault();
 
@@ -238,6 +269,12 @@
                 alert("Error creating transaction. Please try again.");
             }
         }
+
+        // Logout Function
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'index.html';
+        }
     </script>
 </head>
 <body>
@@ -247,7 +284,7 @@
             <a href="admin-dashboard.html">Dashboard</a>
             <a href="queue-management.html">Manage Queue</a>
             <a href="notifications.html">Notifications</a>
-            <a href="index.html">Logout</a>
+            <a href="#" onclick="logout()">Logout</a>
         </nav>
     </header>
 
@@ -256,9 +293,7 @@
             <!-- Queue statistics will load here dynamically -->
         </section>
 
-        <!-- ==========================
-             New: Create Transaction Form
-             ========================== -->
+        <!-- New: Create Transaction Form -->
         <section>
             <h2>Create Transaction (User Joining the Queue)</h2>
             <form id="createTransactionForm" onsubmit="createTransaction(event)">
@@ -296,6 +331,7 @@
 
         <section>
             <h2>Completed Transactions</h2>
+            <button id="toggleCompletedButton" onclick="toggleCompletedTransactions()">See All</button>
             <table border="1">
                 <thead>
                     <tr>
