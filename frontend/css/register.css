@@ -18,20 +18,7 @@ body {
   .navbar a:hover {
     color: #ADBC9F; /* Light green hover effect */
   }
-  
-  /* Highlight the active nav item */
-  .nav-item.active .nav-link {
-    color: #d3a557; /* Lighter color for the active page */
-  }
-  
-  .nav-item .nav-link {
-    color: #FBFADA; /* Light yellow text */
-    text-decoration: none;
-  }
-  
-  .nav-item .nav-link:hover {
-    color: #ADBC9F; /* Light green hover effect */
-  }
+
   
   /* Registration Form Styles */
   #register-form {
