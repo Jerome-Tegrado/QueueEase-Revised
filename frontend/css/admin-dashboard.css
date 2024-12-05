@@ -1,83 +1,71 @@
-/* General Body Styles */
-body {
-    background-color: #FBFADA; /* Light yellow background */
-    font-family: 'Poppins', sans-serif;
-    padding-bottom: 60px; /* Ensure enough space for the footer */
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Dashboard | QueueEase</title>
+  
+  <!-- Google Font: Poppins -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 
-/* Navbar Styles */
-.navbar {
-    background-color: #12372A; /* Dark green background */
-}
+  <!-- Font Awesome for icons -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
 
-.navbar a {
-    color: #FBFADA; /* Light yellow text */
-    text-decoration: none;
-}
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="css/admin-dashboard.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar navbar-expand-lg navbar-dark px-4">
+    <a class="navbar-brand" href="#">QueueEase</a>
+    <div class="collapse navbar-collapse">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item">
+          <a href="index.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
+        </li>
+      </ul>
+    </div>
+  </nav>
 
-.navbar a:hover {
-    color: #ADBC9F; /* Light green hover effect */
-}
+  <!-- Welcoming Message -->
+  <div class="welcome-message" style="padding-left: 30px; margin-top: 50px; max-width: 100%; width: 650px;">
+    <h3 style="color: #12372A; font-weight: 600; font-size: 50px;">Welcome, Admin!</h3>
+  </div>
 
-/* Highlight the active nav item */
-.nav-item.active .nav-link {
-    color: #d3a557; /* Lighter color for the active page */
-}
+  <!-- Center Content -->
+  <div class="icon-container text-center">
+    <div class="row">
+      <div class="col-md-4">
+        <a href="user-management.html" class="icon-box">
+          <i class="fas fa-users fa-3x"></i>
+          <p>Manage Users</p>
+        </a>
+      </div>
+      <div class="col-md-4">
+        <a href="queue-management.html" class="icon-box">
+          <i class="fas fa-tasks fa-3x"></i>
+          <p>Manage Queue</p>
+        </a>
+      </div>
+      <div class="col-md-4">
+        <a href="notifications.html" class="icon-box">
+          <i class="fas fa-bell fa-3x"></i>
+          <p>Send Notifications</p>
+        </a>
+      </div>
+    </div>
+  </div>
 
-.nav-item .nav-link {
-    color: #FBFADA; /* Light yellow text */
-    text-decoration: none;
-}
 
-.nav-item .nav-link:hover {
-    color: #ADBC9F; /* Light green hover effect */
-}
+  <!-- Footer -->
+  <footer class="footer mt-5">
+    ©2024 QueueEase. All rights reserved.
+  </footer>
 
-/* Logout Button */
-.logout-btn {
-    background-color: #F9C0AB; /* Light red */
-    color: white;
-    border: none;
-    padding: 8px 12px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease, transform 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-decoration: none; /* Ensures no underline for links */
-}
-
-.logout-btn i {
-    font-size: 20px;
-}
-
-.logout-btn:hover {
-    background-color: #a95d5d; /* Darker red on hover */
-    transform: scale(1.05); /* Slightly enlarge on hover */
-}
-
-.logout-btn:focus {
-    outline: none;
-}
-
-/* Footer Styling */
-footer {
-    background-color: #12372A; /* Dark green */
-    color: #FBFADA; /* Light yellow text */
-    text-align: center;
-    padding: 15px;
-    position: fixed;
-    width: 100%;
-    bottom: 0;
-    left: 0;
-    font-size: 14px;
-}
-
-footer a {
-    color: #ADBC9F; /* Light green */
-    text-decoration: none;
-}
-
-footer a:hover {
-    color: #FBFADA; /* Light yellow on hover */
-}
+  <!-- Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
