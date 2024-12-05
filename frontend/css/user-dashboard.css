@@ -55,6 +55,12 @@ body {
     font-size: 50px;
 }
 
+/* User Info Section */
+#userInfo {
+    font-size: 20px;
+    font-weight: 600;
+}
+
 /* Icon Container */
 .icon-container {
     margin-top: 90px;
@@ -105,6 +111,23 @@ footer a {
 footer a:hover {
     color: #FBFADA; /* Light yellow on hover */
 }
+
+
+
+/* User Info Styling */
+#userInfo {
+    font-size: 20px;
+    font-weight: 600;
+    color: #12372A;
+    
+    padding: 5px;
+   
+    margin: 10px auto;
+    width: 80%; /* Adjust width for better display */
+    
+    text-align: left;
+}
+
 
 /* Mobile Responsiveness */
 @media (max-width: 768px) {

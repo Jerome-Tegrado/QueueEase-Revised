@@ -32,7 +32,9 @@
 
   <!-- Welcoming Message -->
   <div class="welcome-message" style="padding-left: 30px; margin-top: 50px; max-width: 100%; width: 650px;">
-    <h3 style="color: #12372A; font-weight: 600; font-size: 50px;">Welcome, Admin!</h3>
+    <h3 style="color: #12372A; font-weight: 600; font-size: 50px;">Welcome, </h3>
+    <h3 id="userInfo" style="color: #12372A; font-weight: 600; font-size: 50px;"></h3>
+    <p id="userID"></p>
   </div>
 
   <!-- Center Content -->
@@ -65,7 +67,45 @@
     ©2024 QueueEase. All rights reserved.
   </footer>
 
-  <!-- Bootstrap Bundle with Popper -->
+  <!-- Scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/scripts.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function displayUserInfo() {
+      const firstName = localStorage.getItem('first_name');
+      const lastName = localStorage.getItem('last_name');
+      const userId = localStorage.getItem('id');
+
+      if (firstName && lastName && userId) {
+        const userInfoElement = document.getElementById('userInfo');
+        if (userInfoElement) {
+          userInfoElement.textContent = `${firstName} ${lastName}!`;
+        }
+      }
+    }
+
+    function displayUserID() {
+      const userId = localStorage.getItem('id');
+
+      if (userId) {
+        const userInfoElement = document.getElementById('userID');
+        if (userInfoElement) {
+          userInfoElement.textContent = `Admin ID: ${userId}`;
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      displayUserInfo();
+      displayUserID();
+
+      // Auto-refresh every 5 seconds
+      setInterval(() => {
+        displayUserInfo();
+        displayUserID();
+      }, 1000);
+    });
+  </script>
 </body>
 </html>
