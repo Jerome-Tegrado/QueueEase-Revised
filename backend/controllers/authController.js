@@ -1,3 +1,4 @@
+// controllers/authController.js
 const { db } = require('../models/database');
 
 // Register User
@@ -35,18 +36,26 @@ exports.loginUser = (req, res) => {
     // Store the user's ID in the session to ensure uniqueness across tabs/devices
     req.session.user_id = user.id;
 
+    // Prepare user data to send to frontend
+    const userData = {
+      id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+    };
+
     // Redirect based on user role
     if (user.role === 'admin') {
       return res.status(200).json({
         message: 'Welcome, Admin!',
         redirect: '/admin-dashboard.html',
-        user: { id: user.id, email: user.email },
+        user: userData,
       });
     } else if (user.role === 'user') {
       return res.status(200).json({
         message: 'Welcome, User!',
         redirect: '/user-dashboard.html',
-        user: { id: user.id, email: user.email },
+        user: userData,
       });
     } else {
       return res.status(403).json({ message: 'Invalid role.' });

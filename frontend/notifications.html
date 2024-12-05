@@ -185,7 +185,7 @@
       }
 
       // Auto-refresh notifications every 5 seconds
-      setInterval(populateNotifications, 5000);
+      setInterval(populateNotifications, 1000);
 
       // Listen for real-time notification events
       socket.on("notificationSent", () => {

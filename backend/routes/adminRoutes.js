@@ -62,7 +62,7 @@ router.post("/queue/:queueNumber/notify-next", async (req, res) => {
         }
 
         if (nextTransaction) {
-            const dynamicMessage = `You are next in line. Please be prepared for queue #${queueNumber}.`;
+            const dynamicMessage = `You are next in line. Please be prepared.`;
             console.log(`Next user found: ${nextTransaction.user_id}. Sending message: "${dynamicMessage}"`);
             try {
                 const emailData = await notifyUser(nextTransaction.user_id, queueNumber, dynamicMessage);
@@ -128,7 +128,7 @@ router.post("/queue/:queueNumber/in-progress", async (req, res) => {
                 }
 
                 if (nextTransaction) {
-                    const nextMessage = `You are next in line. Please be prepared for queue #${queueNumber}.`;
+                    const nextMessage = `You are next in line. Please be prepared.`;
                     console.log(`Next user found: ${nextTransaction.user_id}. Sending message: "${nextMessage}"`);
                     try {
                         const nextUserEmail = await notifyUser(nextTransaction.user_id, queueNumber, nextMessage);
@@ -448,7 +448,7 @@ router.put("/queue/:queueNumber/:action", (req, res) => {
                         }
 
                         if (nextTransaction) {
-                            const nextMessage = `You are next in line. Please be prepared for queue #${queueNumber}.`;
+                            const nextMessage = `You are next in line. Please be prepared.`;
                             console.log(`Next user found: ${nextTransaction.user_id}. Sending message: "${nextMessage}"`);
                             try {
                                 const nextUserEmail = await notifyUser(nextTransaction.user_id, queueNumber, nextMessage);

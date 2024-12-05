@@ -51,16 +51,16 @@
         if (isSomeoneServing) {
             servingText = currently_serving
                 ? `Queue #${currently_serving.queue_number} (${currently_serving.service_name})`
-                : 'There is No One in the Queue';
+                : 'There is no one in the queue';
         } else {
-            servingText = 'There is No One in the Queue';
+            servingText = 'There is no one in the queue';
         }
 
         let userQueueText = '';
         if (isUserInQueue && user_queue) {
             userQueueText = `Queue #${user_queue.queue_number} (${user_queue.service_name})`;
         } else {
-            userQueueText = 'You are Not in the Queue';
+            userQueueText = 'You are not in the queue';
         }
 
         queueStats.innerHTML = `

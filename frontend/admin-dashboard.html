@@ -1,3 +1,4 @@
+<!-- admin-dashboard.html -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -14,7 +15,39 @@
     <a href="user-management.html">Manage Users</a>
     <a href="queue-management.html">Manage Queue</a>
     <a href="notifications.html">Send Notifications</a>
-    <a href="index.html">Logout</a>
+    <a href="#" onclick="logout()">Logout</a>
   </nav>
+
+  <main>
+    <p id="userInfo"></p>
+    <!-- Other content can go here -->
+  </main>
+
+  <!-- Include scripts -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/scripts.js"></script>
+  <script>
+    function displayUserInfo() {
+      const firstName = localStorage.getItem('first_name');
+      const lastName = localStorage.getItem('last_name');
+      const userId = localStorage.getItem('id');
+
+      if (firstName && lastName && userId) {
+        const userInfoElement = document.getElementById('userInfo');
+        if (userInfoElement) {
+          userInfoElement.textContent = `Welcome, ${firstName} ${lastName}! ID: ${userId}`;
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      displayUserInfo();
+
+      // Auto-refresh every 5 seconds
+      setInterval(() => {
+        displayUserInfo();
+      }, 1000);
+    });
+  </script>
 </body>
 </html>
