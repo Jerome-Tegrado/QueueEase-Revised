@@ -1,0 +1,150 @@
+/* General Body Styles */
+body {
+    background-color: #FBFADA; /* Light yellow background */
+    font-family: 'Poppins', sans-serif;
+    padding-bottom: 60px; /* Ensure enough space for the footer */
+}
+
+/* Navbar Styles */
+.navbar {
+    background-color: #12372A; /* Dark green background */
+    padding: 10px 20px; /* Adjust padding for mobile */
+}
+
+.navbar a {
+    color: #FBFADA; /* Light yellow text */
+    text-decoration: none;
+    font-size: 1rem; /* Adjust font size for better readability */
+}
+
+.navbar a:hover {
+    color: #ADBC9F; /* Light green hover effect */
+}
+
+/* Logout Button */
+.logout-btn {
+    background-color: #F9C0AB; /* Light red */
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none; /* Ensures no underline for links */
+}
+
+.logout-btn i {
+    font-size: 20px;
+}
+
+.logout-btn:hover {
+    background-color: #a95d5d; /* Darker red on hover */
+    transform: scale(1.05); /* Slightly enlarge on hover */
+}
+
+.logout-btn:focus {
+    outline: none;
+}
+
+/* Welcome Text */
+.welcome-text {
+    color: #12372A; /* Dark green */
+    font-weight: 600;
+    font-size: 50px;
+}
+
+/* Icon Container */
+.icon-container {
+    margin-top: 90px;
+}
+
+.icon-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-decoration: none;
+    color: #12372A; /* Dark green */
+    transition: transform 0.3s ease, color 0.3s ease;
+}
+
+.icon-box i {
+    margin-bottom: 10px;
+    color: #12372A;
+}
+
+.icon-box p {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.icon-box:hover {
+    color: #ADBC9F; /* Light green */
+    transform: scale(1.1);
+}
+
+/* Footer Styling */
+footer {
+    background-color: #12372A; /* Dark green */
+    color: #FBFADA; /* Light yellow text */
+    text-align: center;
+    padding: 15px;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+    left: 0;
+    font-size: 14px;
+}
+
+footer a {
+    color: #ADBC9F; /* Light green */
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: #FBFADA; /* Light yellow on hover */
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 768px) {
+    /* Navbar Adjustments */
+    .navbar {
+        padding: 10px 15px;
+    }
+
+    .navbar a {
+        font-size: 0.9rem; /* Slightly smaller font size for mobile */
+    }
+
+    /* Adjust Icon Box layout for small screens */
+    .icon-container {
+        margin-top: 60px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center; /* Center icons on mobile */
+    }
+
+    .icon-box {
+        margin: 10px; /* Add spacing between icons */
+        width: 80%; /* Ensure icons do not stretch too wide */
+        text-align: center;
+    }
+
+    .icon-box p {
+        font-size: 16px; /* Smaller text for mobile */
+    }
+
+    /* Welcome Text */
+    .welcome-text {
+        font-size: 30px; /* Smaller font size for mobile screens */
+        text-align: center; /* Center the welcome text */
+        margin-bottom: 20px; /* Add space below welcome text */
+    }
+
+    /* Footer Adjustments */
+    footer {
+        padding: 10px;
+        font-size: 12px; /* Slightly smaller font size for mobile */
+    }
+}

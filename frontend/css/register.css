@@ -1,0 +1,194 @@
+/* General Body Styles */
+body {
+    background-color: #FBFADA; /* Light yellow background */
+    font-family: 'Poppins', sans-serif;
+    padding-bottom: 60px; /* Ensure enough space for the footer */
+  }
+  
+  /* Navbar Styles */
+  .navbar {
+    background-color: #12372A; /* Dark green background */
+  }
+  
+  .navbar a {
+    color: #FBFADA; /* Light yellow text */
+    text-decoration: none;
+  }
+  
+  .navbar a:hover {
+    color: #ADBC9F; /* Light green hover effect */
+  }
+  
+  /* Highlight the active nav item */
+  .nav-item.active .nav-link {
+    color: #d3a557; /* Lighter color for the active page */
+  }
+  
+  .nav-item .nav-link {
+    color: #FBFADA; /* Light yellow text */
+    text-decoration: none;
+  }
+  
+  .nav-item .nav-link:hover {
+    color: #ADBC9F; /* Light green hover effect */
+  }
+  
+  /* Registration Form Styles */
+  #register-form {
+    background-color: #ADBC9F; /* Light green background */
+    border-radius: 10px;
+    padding: 30px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    max-width: 500px;
+    width: 100%;
+    margin: 50px auto;
+  }
+  
+  #register-form h2 {
+    color: #12372A; /* Dark green text for the title */
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  #register-form .form-control {
+    border-radius: 5px;
+    margin-bottom: 15px;
+    border: 1px solid #ddd;
+    padding: 10px;
+    transition: border-color 0.3s ease;
+  }
+  
+  #register-form .form-control:focus {
+    border-color: #436850; /* Darker green on focus */
+    box-shadow: 0 0 5px rgba(67, 104, 80, 0.5);
+  }
+  
+  #register-form .btn {
+    border-radius: 5px;
+    padding: 10px;
+    transition: background-color 0.3s ease;
+  }
+  
+  #register-form .btn-custom {
+    background-color: #436850; /* Dark green button */
+    color: #FBFADA; /* Light yellow text */
+    border: none;
+  }
+  
+  #register-form .btn-custom:hover {
+    background-color: #12372A; /* Darker green on hover */
+  }
+  
+  /* Cancel Button */
+  .btn-secondary {
+    background-color: #d19c89; /* Light red background */
+    color: white;
+    border: none;
+  }
+  
+  .btn-secondary:hover {
+    background-color: #a95d5d; /* Darker red on hover */
+    transform: scale(1.05); /* Slightly enlarge on hover */
+  }
+  
+  /* Logout Button */
+  .logout-btn {
+    background-color: #F9C0AB; /* Light red */
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .logout-btn i {
+    font-size: 20px;
+  }
+  
+  .logout-btn:hover {
+    background-color: #a95d5d; /* Darker red on hover */
+    transform: scale(1.05); /* Slightly enlarge on hover */
+  }
+  
+  .logout-btn:focus {
+    outline: none;
+  }
+  
+  /* Footer Styling */
+  footer {
+    background-color: #12372A; /* Dark green */
+    color: #FBFADA; /* Light yellow text */
+    text-align: center;
+    padding: 15px;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+    left: 0;
+    font-size: 14px;
+  }
+  
+  footer a {
+    color: #ADBC9F; /* Light green */
+    text-decoration: none;
+  }
+  
+  footer a:hover {
+    color: #FBFADA; /* Light yellow on hover */
+  }
+  
+  /* Mobile responsiveness */
+@media (max-width: 768px) {
+  /* Make the navbar items stack vertically */
+  .navbar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* Adjust form width */
+  #register-form {
+    padding: 15px;
+    margin: 20px;
+    width: 90%;
+  }
+
+  /* Make form inputs and buttons full width */
+  #register-form .form-control, 
+  #register-form .btn-custom, 
+  .btn-secondary {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+
+  /* Adjust footer text size for small screens */
+  footer {
+    font-size: 12px;
+  }
+}
+
+/* Small screens (e.g., mobile phones) */
+@media (max-width: 480px) {
+  /* Further reduce form padding */
+  #register-form {
+    padding: 10px;
+    margin: 10px;
+  }
+
+  /* Adjust navbar font size */
+  .navbar a {
+    font-size: 14px;
+  }
+
+  /* Adjust buttons' font size and padding */
+  .btn-custom, .btn-secondary {
+    padding: 8px;
+  }
+
+  /* Adjust footer font size */
+  footer {
+    font-size: 12px;
+  }
+}
