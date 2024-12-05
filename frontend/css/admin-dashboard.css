@@ -1,71 +1,177 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard | QueueEase</title>
-  
-  <!-- Google Font: Poppins -->
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
-  
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+/* General Body Styles */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%; /* Ensures the height of the page is full */
+    background-color: #FBFADA; /* Light yellow background */
+    font-family: 'Poppins', sans-serif;
+}
 
-  <!-- Font Awesome for icons -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+/* Body Padding Adjustment */
+body {
+    padding-bottom: 60px; /* This can be adjusted or removed */
+}
 
-  <!-- Custom Stylesheet -->
-  <link rel="stylesheet" href="css/admin-dashboard.css">
-</head>
-<body>
-  <!-- Navigation Bar -->
-  <nav class="navbar navbar-expand-lg navbar-dark px-4">
-    <a class="navbar-brand" href="#">QueueEase</a>
-    <div class="collapse navbar-collapse">
-      <ul class="navbar-nav ms-auto">
-        <li class="nav-item">
-          <a href="index.html" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
-        </li>
-      </ul>
-    </div>
-  </nav>
+/* Navbar Styles */
+.navbar {
+    background-color: #12372A; /* Dark green background */
+    padding: 10px 20px; /* Add padding to the navbar */
+}
 
-  <!-- Welcoming Message -->
-  <div class="welcome-message" style="padding-left: 30px; margin-top: 50px; max-width: 100%; width: 650px;">
-    <h3 style="color: #12372A; font-weight: 600; font-size: 50px;">Welcome, Admin!</h3>
-  </div>
+.navbar a {
+    color: #FBFADA; /* Light yellow text */
+    text-decoration: none;
+    margin: 0 15px; /* Add margin between navbar items */
+    display: inline-block;
+}
 
-  <!-- Center Content -->
-  <div class="icon-container text-center">
-    <div class="row">
-      <div class="col-md-4">
-        <a href="user-management.html" class="icon-box">
-          <i class="fas fa-users fa-3x"></i>
-          <p>Manage Users</p>
-        </a>
-      </div>
-      <div class="col-md-4">
-        <a href="queue-management.html" class="icon-box">
-          <i class="fas fa-tasks fa-3x"></i>
-          <p>Manage Queue</p>
-        </a>
-      </div>
-      <div class="col-md-4">
-        <a href="notifications.html" class="icon-box">
-          <i class="fas fa-bell fa-3x"></i>
-          <p>Send Notifications</p>
-        </a>
-      </div>
-    </div>
-  </div>
+.navbar a:hover {
+    color: #ADBC9F; /* Light green hover effect */
+}
 
+/* Styling the Logout Button */
+.logout-btn {
+    background-color: #F9C0AB;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    transition: background-color 0.3s ease, transform 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
 
-  <!-- Footer -->
-  <footer class="footer mt-5">
-    ©2024 QueueEase. All rights reserved.
-  </footer>
+.logout-btn i {
+    font-size: 20px;
+}
 
-  <!-- Bootstrap Bundle with Popper -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
+.logout-btn:hover {
+    background-color: #a95d5d;
+    transform: scale(1.05);
+}
+
+.logout-btn:focus {
+    outline: none;
+}
+
+/* Center Content Styles */
+.icon-container {
+    margin-top: 100px;
+    text-align: center;
+}
+
+.icon-box {
+    display: block;
+    text-decoration: none;
+    color: #12372A;
+    transition: transform 0.3s ease, color 0.3s ease;
+    margin-bottom: 30px;
+}
+
+.icon-box i {
+    color: #12372A; /* Dark green */
+    margin-bottom: 10px;
+}
+
+.icon-box p {
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.icon-box:hover {
+    color: #ADBC9F; /* Light green */
+    transform: scale(1.1);
+}
+
+/* Footer Styling */
+footer {
+    background-color: #12372A; /* Dark green */
+    color: #FBFADA; /* Light yellow text */
+    text-align: center;
+    padding: 15px;
+    position: fixed;
+    width: 100%;
+    bottom: 0;
+    left: 0;
+    font-size: 14px;
+}
+
+body {
+    overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+footer a {
+    color: #ADBC9F; /* Light green */
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: #FBFADA; /* Light yellow on hover */
+}
+
+/* Media Queries for Mobile Responsiveness */
+@media (max-width: 768px) {
+    /* Navbar Adjustments for Small Screens */
+    .navbar {
+        padding: 10px;
+        text-align: center;
+    }
+
+    .navbar a {
+        display: block;
+        margin: 5px 0; /* Adjust margin for smaller screens */
+        font-size: 14px; /* Smaller font size */
+    }
+
+    /* Adjusting Logout Button for Mobile */
+    .logout-btn {
+        width: 100%; /* Make the button full width */
+        padding: 12px 20px; /* Increase padding for mobile */
+        margin-top: 15px; /* Add margin for spacing */
+    }
+
+    /* Center Content Adjustments */
+    .icon-container {
+        margin-top: 50px; /* Reduced margin for mobile */
+    }
+
+    .icon-box {
+        margin-bottom: 20px; /* Adjust spacing */
+        padding: 15px;
+    }
+
+    .icon-box p {
+        font-size: 16px; /* Smaller font size */
+    }
+
+    /* Footer Styling for Small Screens */
+    footer {
+        font-size: 12px; /* Reduce font size */
+        padding: 10px;
+    }
+}
+
+/* For Small Mobile Screens (max-width: 480px) */
+@media (max-width: 480px) {
+    .navbar {
+        padding: 8px 10px; /* Adjust padding */
+    }
+
+    .navbar a {
+        font-size: 12px; /* Further reduce font size */
+        margin: 5px 0; /* Adjust margin */
+    }
+
+    .icon-container {
+        margin-top: 30px; /* Further reduce margin for small screens */
+    }
+
+    .icon-box p {
+        font-size: 14px; /* Even smaller font size */
+    }
+
+    footer {
+        font-size: 10px; /* Very small font for footer */
+    }
+}
