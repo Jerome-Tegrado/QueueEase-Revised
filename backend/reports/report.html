@@ -1,0 +1,56 @@
+<!-- backend/reports/report.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>QueueEase Reports</title>
+    <link rel="stylesheet" href="reportStyles.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Chart.js Data Labels Plugin CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+    <!-- jsPDF CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>QueueEase Reports</h1>
+        <form id="reportForm">
+            <label for="reportType">Report Type:</label>
+            <select id="reportType" name="reportType" required>
+                <option value="">--Select Report--</option>
+                <option value="service-utilization">Service Utilization Report</option>
+                <option value="user-registrations">User Registration Report</option>
+                <option value="daily-peak-times">Daily Peak Time Report</option>
+                <option value="transaction-status">Transaction Status Distribution Report</option>
+                <option value="service-usage-trends">Service-Specific Usage Trends Report</option>
+            </select>
+
+            <label for="period">Period:</label>
+            <select id="period" name="period" required>
+                <option value="">--Select Period--</option>
+                <option value="today">Today</option>
+                <option value="weekly">Last 7 Days</option>
+                <option value="monthly">Last 30 Days</option>
+                <option value="six-months">Last 6 Months</option>
+                <option value="annually">Last Year</option>
+                <option value="five-years">Last 5 Years</option>
+                <option value="ten-years">Last 10 Years</option>
+            </select>
+
+            <button type="button" onclick="generateReport()">Generate Report</button>
+        </form>
+
+        <div id="reportContent" style="display:none;">
+            <h2 id="reportTitle"></h2>
+            <div class="chart-container">
+                <canvas id="reportChart"></canvas>
+            </div>
+            <button id="downloadPdf" onclick="downloadPDF()">Download PDF</button>
+        </div>
+    </div>
+
+    <script src="reportScripts.js"></script>
+</body>
+</html>

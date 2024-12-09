@@ -1,3 +1,4 @@
+// backend/app.js
 const express = require('express');
 const bodyParser = require('body-parser');
 const dotenv = require('dotenv');
@@ -12,6 +13,9 @@ const {
   notifyUserQueueUpdate,
   notifyNextUser,
 } = require('./socket'); // Import socket functions
+
+// Import the reports router
+const reportRoutes = require('./reports/generateReport');
 
 dotenv.config();
 
@@ -33,6 +37,9 @@ app.use(
 
 // Serve static frontend files
 app.use(express.static(path.join(__dirname, '../frontend')));
+
+// Use the reports router under '/reports'
+app.use('/reports', reportRoutes);
 
 // Import routes
 const authRoutes = require('./routes/authRoutes');
