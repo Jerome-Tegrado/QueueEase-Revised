@@ -380,6 +380,22 @@ button:hover i {
         font-size: 12px; /* Slightly larger footer text */
         padding: 12px; /* Increase footer padding */
     }
+
+    /* Increase navbar font size and padding on phones */
+    .navbar a, .navbar .queueease, .navbar-text {
+        font-size: 1.2rem; /* Larger font size */
+        padding: 12px 20px; /* Increased padding */
+    }
+
+    /* Increase icon sizes on phones */
+    .navbar a i, .navbar .queueease i, .navbar-text i {
+        font-size: 1.5rem; /* Larger icons */
+    }
+
+    /* Adjust chart container for better visibility */
+    .chart-container {
+        padding: 15px; /* Increase padding for larger charts */
+    }
 }
 
 /* Ensure the footer sticks to the bottom on small screens */
