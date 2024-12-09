@@ -209,19 +209,56 @@ function renderChart(reportType, data) {
             chartOptions = {
                 plugins: {
                     datalabels: {
-                        color: '#fff',
+                        color: '#000',
                         formatter: (value, ctx) => {
                             let sum = ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
                             let percentage = (value * 100 / sum).toFixed(2) + '%';
                             return percentage;
-                        }
+                        },
+                        font: {
+                            weight: 'bold',
+                            size: (ctx) => {
+                                const value = ctx.chart.data.datasets[0].data[ctx.dataIndex];
+                                const percentage = (value * 100 / ctx.chart.data.datasets[0].data.reduce((a, b) => a + b, 0)).toFixed(2);
+                                return percentage < 5 ? 10 : 12; // Smaller font for smaller slices
+                            }
+                        },
+                        align: 'center',
+                        anchor: 'center',
+                        overflow: 'ellipsis',
+                        clamp: true
                     }
                 },
                 responsive: true,
                 maintainAspectRatio: false,
+                indexAxis: 'y', // Makes the bar chart horizontal
+                scales: {
+                    x: { beginAtZero: true }
+                },
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        font: {
+                            family: 'Poppins',
+                            size: 12
+                        }
+                    }
+                },
+                tooltips: {
+                    enabled: true,
+                    callbacks: {
+                        label: function(tooltipItem, data) {
+                            const dataset = data.datasets[tooltipItem.datasetIndex];
+                            const total = dataset.data.reduce((a, b) => a + b, 0);
+                            const currentValue = dataset.data[tooltipItem.index];
+                            const percentage = ((currentValue / total) * 100).toFixed(2);
+                            return `${data.labels[tooltipItem.index]}: ${percentage}% (${currentValue})`;
+                        }
+                    }
+                }
             };
             chart = new Chart(ctx, {
-                type: 'pie',
+                type: 'bar', // Changed from 'pie' to 'bar' for horizontal bar chart
                 data: chartData,
                 options: chartOptions,
                 plugins: [ChartDataLabels]
@@ -279,83 +316,6 @@ function renderChart(reportType, data) {
 
         default:
             reportTitle.innerText = 'Unknown Report';
-    }
-}
-
-async function downloadPDF() {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-
-    // Add Garamond Font (EB Garamond as an example)
-    // Note: You need to add the Garamond font file converted to Base64 and include it here.
-    // For demonstration, we'll use a built-in font. To use Garamond, follow jsPDF's custom font embedding.
-    // Example:
-    // await doc.addFileToVFS("EBGaramond-Regular.ttf", "BASE64_ENCODED_FONT_DATA");
-    // await doc.addFont("EBGaramond-Regular.ttf", "EBGaramond", "normal");
-    // doc.setFont("EBGaramond");
-
-    // Using a standard font as a placeholder
-    doc.setFont("Times", "Roman");
-
-    // Add QueueEase Report Title
-    doc.setFontSize(22);
-    doc.text("QueueEase Report", 105, 20, { align: "center" });
-
-    // Add Report Name
-    doc.setFontSize(16);
-    doc.text(`Report: ${document.getElementById('reportTitle').innerText}`, 105, 30, { align: "center" });
-
-    // Add Created At (PH Time)
-    const phTime = new Date().toLocaleString("en-US", { timeZone: "Asia/Manila" });
-    doc.setFontSize(12);
-    doc.text(`Created at: ${phTime}`, 105, 40, { align: "center" });
-
-    // Add Period
-    doc.text(`Period: ${formatPeriod(currentPeriod)}`, 105, 45, { align: "center" });
-
-    // Determine image dimensions based on report type
-    let imgWidth = 190; // default width
-    let imgHeight = 100; // default height
-
-    if (currentReportType === 'transaction-status') {
-        // Make pie chart wider
-        imgWidth = 180;
-        imgHeight = 100;
-    }
-
-    // Add some space before the chart
-    let imgY = 50;
-
-    // Add the chart image
-    const canvas = document.getElementById('reportChart');
-    const imgData = canvas.toDataURL('image/png');
-
-    doc.addImage(imgData, 'PNG', 20, imgY, imgWidth, imgHeight);
-
-    // Add additional details if needed
-    // For example, you can add a footer or more information below the chart
-
-    doc.save(`QueueEase_Report_${currentReportType}_${phTime}.pdf`);
-}
-
-function formatPeriod(period) {
-    switch(period) {
-        case 'today':
-            return 'Today';
-        case 'weekly':
-            return 'Last 7 Days';
-        case 'monthly':
-            return 'Last 30 Days';
-        case 'six-months':
-            return 'Last 6 Months';
-        case 'annually':
-            return 'Last Year';
-        case 'five-years':
-            return 'Last 5 Years';
-        case 'ten-years':
-            return 'Last 10 Years';
-        default:
-            return 'Custom Period';
     }
 }
 
